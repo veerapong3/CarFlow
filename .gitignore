@@ -43,3 +43,7 @@ next-env.d.ts
 service-account.json
 carbooking-*.json
 client_secret_*.json
+
+# ไฟล์ตัวอย่างไม่มีค่าจริง จึงเก็บไว้ใน repo ได้
+.env*
+!.env.example

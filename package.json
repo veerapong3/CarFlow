@@ -11,7 +11,8 @@
     "check-drive": "node scripts/check-drive.mjs",
     "get-token": "node scripts/get-drive-token.mjs",
     "test-upload": "node scripts/test-drive-upload.mjs",
-    "e2e": "node scripts/e2e-test.mjs"
+    "e2e": "node scripts/e2e-test.mjs",
+    "push-env": "node scripts/push-vercel-env.mjs"
   },
   "dependencies": {
     "googleapis": "^144.0.0",
