@@ -31,9 +31,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json(
       {
         error:
-          error instanceof Error
-            ? error.message
-            : "อัปโหลดรูปภาพไม่สำเร็จ ตรวจสอบว่าแชร์โฟลเดอร์ Drive ให้ Service Account แล้ว",
+          error instanceof Error ? error.message : "อัปโหลดรูปภาพไม่สำเร็จ",
       },
       { status: 500 }
     );

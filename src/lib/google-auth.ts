@@ -13,7 +13,7 @@ function getCredentials() {
   return null;
 }
 
-export function getGoogleAuth() {
+export function getGoogleAuth(impersonateUser?: string) {
   const credentials = getCredentials();
   if (!credentials) {
     throw new Error("GOOGLE_SERVICE_ACCOUNT_JSON is not configured");
@@ -21,6 +21,7 @@ export function getGoogleAuth() {
   return new google.auth.GoogleAuth({
     credentials,
     scopes: SCOPES,
+    clientOptions: impersonateUser ? { subject: impersonateUser } : undefined,
   });
 }
 
@@ -29,8 +30,12 @@ export function getSheetsClient() {
   return google.sheets({ version: "v4", auth });
 }
 
+/**
+ * Service accounts have no Drive storage quota of their own, so writes must be
+ * attributed to either a shared drive or an impersonated Workspace user.
+ */
 export function getDriveClient() {
-  const auth = getGoogleAuth();
+  const auth = getGoogleAuth(process.env.GOOGLE_IMPERSONATE_USER);
   return google.drive({ version: "v3", auth });
 }
 
@@ -51,7 +56,7 @@ export function driveViewUrl(fileId: string): string {
 export async function verifyDriveFile(fileId: string): Promise<boolean> {
   try {
     const drive = getDriveClient();
-    await drive.files.get({ fileId, fields: "id" });
+    await drive.files.get({ fileId, fields: "id", supportsAllDrives: true });
     return true;
   } catch {
     return false;

@@ -22,6 +22,7 @@ export default function ImageUpload({
   const inputRef = useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState("");
+  const [warning, setWarning] = useState("");
   const [previewUrl, setPreviewUrl] = useState(imageUrl || "");
 
   async function handleFileSelect(e: React.ChangeEvent<HTMLInputElement>) {
@@ -29,6 +30,7 @@ export default function ImageUpload({
     if (!file) return;
 
     setError("");
+    setWarning("");
     setUploading(true);
 
     const localPreview = URL.createObjectURL(file);
@@ -49,6 +51,11 @@ export default function ImageUpload({
 
       URL.revokeObjectURL(localPreview);
       setPreviewUrl(data.imageUrl);
+      if (data.publicAccess === false) {
+        setWarning(
+          "อัปโหลดสำเร็จ แต่ตั้งค่าแชร์สาธารณะไม่ได้ รูปอาจไม่แสดงให้ผู้ใช้ทั่วไปเห็น"
+        );
+      }
       onChange(data.fileId, data.imageUrl);
     } catch (err) {
       URL.revokeObjectURL(localPreview);
@@ -63,6 +70,7 @@ export default function ImageUpload({
   function handleClear() {
     setPreviewUrl("");
     setError("");
+    setWarning("");
     onClear();
     if (inputRef.current) inputRef.current.value = "";
   }
@@ -149,7 +157,12 @@ export default function ImageUpload({
       )}
 
       {error && (
-        <p className="text-sm text-red-600">{error}</p>
+        <p className="rounded-lg bg-red-50 p-3 text-sm text-red-700">{error}</p>
+      )}
+      {warning && (
+        <p className="rounded-lg bg-amber-50 p-3 text-sm text-amber-800">
+          {warning}
+        </p>
       )}
     </div>
   );
