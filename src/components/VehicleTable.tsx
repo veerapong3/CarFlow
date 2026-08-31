@@ -3,6 +3,7 @@
 import { useState } from "react";
 import type { Vehicle, VehicleFormData } from "@/types";
 import ImageLightbox from "./ImageLightbox";
+import ImageUpload from "./ImageUpload";
 import { Pencil, Trash2, Plus } from "lucide-react";
 
 interface VehicleTableProps {
@@ -30,12 +31,14 @@ export default function VehicleTable({
   const [showForm, setShowForm] = useState(false);
   const [editing, setEditing] = useState<Vehicle | null>(null);
   const [form, setForm] = useState<VehicleFormData>(EMPTY_FORM);
+  const [imagePreviewUrl, setImagePreviewUrl] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
   function openCreate() {
     setEditing(null);
     setForm(EMPTY_FORM);
+    setImagePreviewUrl("");
     setShowForm(true);
     setError("");
   }
@@ -52,6 +55,7 @@ export default function VehicleTable({
       imageDriveId: v.imageDriveId || "",
       active: v.active,
     });
+    setImagePreviewUrl(v.imageUrl || "");
     setShowForm(true);
     setError("");
   }
@@ -166,20 +170,22 @@ export default function VehicleTable({
               />
             </div>
             <div className="sm:col-span-2">
-              <label className="label">
-                Google Drive File ID (รูปภาพ — lh3)
-              </label>
-              <input
-                className="input-field"
-                placeholder="เช่น 1ABC...xyz จากลิงก์ Drive"
-                value={form.imageDriveId || ""}
-                onChange={(e) =>
-                  setForm({ ...form, imageDriveId: e.target.value })
-                }
+              <label className="label">รูปภาพรถ</label>
+              <ImageUpload
+                password={password}
+                value={form.imageDriveId}
+                imageUrl={imagePreviewUrl}
+                onChange={(fileId, url) => {
+                  setForm({ ...form, imageDriveId: fileId });
+                  setImagePreviewUrl(url);
+                }}
+                onClear={() => {
+                  setForm({ ...form, imageDriveId: "" });
+                  setImagePreviewUrl("");
+                }}
               />
               <p className="mt-1 text-xs text-slate-500">
-                อัปโหลดรูปไป Google Drive แล้วคัดลอก File ID มาใส่
-                ระบบจะแสดงผ่าน lh3.googleusercontent.com
+                อัปโหลดตรงไป Google Drive โฟลเดอร์โรงเรียน แสดงผ่าน lh3.googleusercontent.com
               </p>
             </div>
             <div>

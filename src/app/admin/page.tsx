@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import AdminLogin, { useAdminAuth } from "@/components/AdminLogin";
+import PageLoading from "@/components/PageLoading";
 import StatusBadge from "@/components/StatusBadge";
 import type { DashboardStats } from "@/types";
 import {
@@ -19,15 +20,18 @@ import Link from "next/link";
 export default function AdminDashboard() {
   const { password, ready, login, logout } = useAdminAuth();
   const [stats, setStats] = useState<DashboardStats | null>(null);
+  const [loadingStats, setLoadingStats] = useState(false);
 
   useEffect(() => {
     if (!password) return;
+    setLoadingStats(true);
     fetch("/api/dashboard")
       .then((r) => r.json())
-      .then(setStats);
+      .then(setStats)
+      .finally(() => setLoadingStats(false));
   }, [password]);
 
-  if (!ready) return null;
+  if (!ready) return <PageLoading />;
 
   if (!password) {
     return <AdminLogin onLogin={login} />;
@@ -86,7 +90,12 @@ export default function AdminDashboard() {
       </div>
 
       <div className="mb-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        {cards.map(({ label, value, icon: Icon, color }) => (
+        {loadingStats ? (
+          <div className="col-span-full">
+            <PageLoading label="กำลังโหลดข้อมูล Dashboard..." />
+          </div>
+        ) : (
+          cards.map(({ label, value, icon: Icon, color }) => (
           <div key={label} className="card flex items-center gap-4">
             <div
               className={`flex h-12 w-12 items-center justify-center rounded-xl text-white ${color}`}
@@ -98,7 +107,8 @@ export default function AdminDashboard() {
               <p className="text-2xl font-bold text-slate-900">{value}</p>
             </div>
           </div>
-        ))}
+        ))
+        )}
       </div>
 
       <div className="card">

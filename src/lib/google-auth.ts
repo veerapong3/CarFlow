@@ -2,7 +2,7 @@ import { google } from "googleapis";
 
 const SCOPES = [
   "https://www.googleapis.com/auth/spreadsheets",
-  "https://www.googleapis.com/auth/drive.readonly",
+  "https://www.googleapis.com/auth/drive",
 ];
 
 function getCredentials() {
@@ -64,4 +64,10 @@ export function generateId(): string {
 
 export function isGoogleConfigured(): boolean {
   return !!(process.env.GOOGLE_SERVICE_ACCOUNT_JSON && process.env.GOOGLE_SHEET_ID);
+}
+
+export function getDriveFolderId(): string {
+  const id = process.env.GOOGLE_DRIVE_FOLDER_ID;
+  if (!id) throw new Error("GOOGLE_DRIVE_FOLDER_ID is not configured");
+  return id;
 }

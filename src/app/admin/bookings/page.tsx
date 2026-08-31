@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback } from "react";
 import AdminLogin, { useAdminAuth } from "@/components/AdminLogin";
+import PageLoading from "@/components/PageLoading";
 import BookingTable from "@/components/BookingTable";
 import type { Booking } from "@/types";
 import { LogOut } from "lucide-react";
@@ -19,7 +20,7 @@ export default function AdminBookingsPage() {
     if (password) load();
   }, [password, load]);
 
-  if (!ready) return null;
+  if (!ready) return <PageLoading />;
   if (!password) return <AdminLogin onLogin={login} />;
 
   return (

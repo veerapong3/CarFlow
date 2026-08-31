@@ -40,7 +40,7 @@ export default function Header() {
               href === "/"
                 ? pathname === "/"
                 : pathname.startsWith(href) && href !== "/";
-            const showOnMobile = href === "/" || isAdmin;
+            const showOnMobile = href === "/" || href === "/admin" || isAdmin;
 
             return (
               <Link

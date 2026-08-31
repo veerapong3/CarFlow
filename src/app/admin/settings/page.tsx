@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import AdminLogin, { useAdminAuth } from "@/components/AdminLogin";
+import PageLoading from "@/components/PageLoading";
 import { LogOut, Send } from "lucide-react";
 
 export default function AdminSettingsPage() {
@@ -21,7 +22,7 @@ export default function AdminSettingsPage() {
       });
   }, []);
 
-  if (!ready) return null;
+  if (!ready) return <PageLoading />;
   if (!password) return <AdminLogin onLogin={login} />;
 
   async function handleSave(e: React.FormEvent) {

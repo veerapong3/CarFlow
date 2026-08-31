@@ -11,12 +11,24 @@ export default function AdminLogin({ onLogin }: AdminLoginProps) {
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
 
-  function handleSubmit(e: React.FormEvent) {
+  async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!password.trim()) {
       setError("กรุณากรอกรหัสผ่าน");
       return;
     }
+
+    const res = await fetch("/api/auth/verify", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ password }),
+    });
+
+    if (!res.ok) {
+      setError("รหัสผ่านไม่ถูกต้อง");
+      return;
+    }
+
     sessionStorage.setItem("adminPassword", password);
     onLogin(password);
   }
@@ -41,12 +53,11 @@ export default function AdminLogin({ onLogin }: AdminLoginProps) {
                 setPassword(e.target.value);
                 setError("");
               }}
+              placeholder="รหัสผ่านเริ่มต้น: admin123"
               autoFocus
             />
           </div>
-          {error && (
-            <p className="text-sm text-red-600">{error}</p>
-          )}
+          {error && <p className="text-sm text-red-600">{error}</p>}
           <button type="submit" className="btn-primary w-full">
             เข้าสู่ระบบ
           </button>
