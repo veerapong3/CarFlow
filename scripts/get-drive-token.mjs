@@ -116,23 +116,31 @@ const server = http.createServer(async (req, res) => {
       process.exit(1);
     }
 
-    oauth2Client.setCredentials(tokens);
-    const oauth2 = google.oauth2({ version: "v2", auth: oauth2Client });
-    const me = await oauth2.userinfo.get();
-
     saveRefreshToken(tokens.refresh_token);
+    oauth2Client.setCredentials(tokens);
+
+    // Identity lookup is best-effort: the drive scope alone can read it, but a
+    // failure here must not discard the token we just saved.
+    let account = "(ไม่ทราบ)";
+    try {
+      const drive = google.drive({ version: "v3", auth: oauth2Client });
+      const about = await drive.about.get({ fields: "user(emailAddress)" });
+      account = about.data.user?.emailAddress || account;
+    } catch {
+      // ignore
+    }
 
     res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
     res.end(
       `<div style="font-family:sans-serif;padding:40px;text-align:center">
         <h2 style="color:#059669">เชื่อมต่อสำเร็จ</h2>
-        <p>บัญชี: ${me.data.email}</p>
+        <p>บัญชี: ${account}</p>
         <p>บันทึก refresh token ลง .env.local เรียบร้อยแล้ว</p>
         <p style="color:#64748b">ปิดหน้านี้แล้วกลับไปที่ terminal ได้เลย</p>
       </div>`
     );
 
-    console.log(`อนุญาตสิทธิ์สำเร็จในนามบัญชี: ${me.data.email}`);
+    console.log(`อนุญาตสิทธิ์สำเร็จในนามบัญชี: ${account}`);
     console.log("บันทึก GOOGLE_OAUTH_REFRESH_TOKEN ลง .env.local เรียบร้อย\n");
     console.log("ขั้นตอนต่อไป: npm run test-upload");
 

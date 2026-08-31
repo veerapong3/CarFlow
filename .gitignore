@@ -42,3 +42,4 @@ next-env.d.ts
 # google credentials
 service-account.json
 carbooking-*.json
+client_secret_*.json
