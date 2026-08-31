@@ -30,13 +30,35 @@ export function getSheetsClient() {
   return google.sheets({ version: "v4", auth });
 }
 
+function getOAuthClient() {
+  const clientId = process.env.GOOGLE_OAUTH_CLIENT_ID;
+  const clientSecret = process.env.GOOGLE_OAUTH_CLIENT_SECRET;
+  const refreshToken = process.env.GOOGLE_OAUTH_REFRESH_TOKEN;
+  if (!clientId || !clientSecret || !refreshToken) return null;
+
+  const client = new google.auth.OAuth2({ clientId, clientSecret });
+  client.setCredentials({ refresh_token: refreshToken });
+  return client;
+}
+
 /**
- * Service accounts have no Drive storage quota of their own, so writes must be
- * attributed to either a shared drive or an impersonated Workspace user.
+ * Service accounts have no Drive storage quota of their own, so uploads must be
+ * attributed to a real user (OAuth refresh token or an impersonated Workspace
+ * account) or to a shared drive. Reads work with the plain service account.
  */
 export function getDriveClient() {
+  const oauth = getOAuthClient();
+  if (oauth) {
+    return google.drive({ version: "v3", auth: oauth });
+  }
   const auth = getGoogleAuth(process.env.GOOGLE_IMPERSONATE_USER);
   return google.drive({ version: "v3", auth });
+}
+
+export function getDriveAuthMode(): "oauth" | "impersonate" | "service-account" {
+  if (getOAuthClient()) return "oauth";
+  if (process.env.GOOGLE_IMPERSONATE_USER) return "impersonate";
+  return "service-account";
 }
 
 export function getSpreadsheetId() {

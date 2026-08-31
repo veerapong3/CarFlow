@@ -39,16 +39,32 @@ const env = loadEnv();
 const credentials = JSON.parse(env.GOOGLE_SERVICE_ACCOUNT_JSON);
 const folderId = env.GOOGLE_DRIVE_FOLDER_ID;
 const impersonate = env.GOOGLE_IMPERSONATE_USER || undefined;
+const refreshToken = env.GOOGLE_OAUTH_REFRESH_TOKEN || undefined;
 
-console.log(`Service Account : ${credentials.client_email}`);
-console.log(`Folder ID       : ${folderId}`);
-console.log(`สวมสิทธิ์เป็น    : ${impersonate || "(ไม่ได้ตั้งค่า)"}\n`);
+let auth;
+let mode;
 
-const auth = new google.auth.GoogleAuth({
-  credentials,
-  scopes: ["https://www.googleapis.com/auth/drive"],
-  clientOptions: impersonate ? { subject: impersonate } : undefined,
-});
+if (env.GOOGLE_OAUTH_CLIENT_ID && env.GOOGLE_OAUTH_CLIENT_SECRET && refreshToken) {
+  mode = "OAuth (ในนามผู้ใช้จริง)";
+  auth = new google.auth.OAuth2({
+    clientId: env.GOOGLE_OAUTH_CLIENT_ID,
+    clientSecret: env.GOOGLE_OAUTH_CLIENT_SECRET,
+  });
+  auth.setCredentials({ refresh_token: refreshToken });
+} else {
+  mode = impersonate
+    ? `Service Account สวมสิทธิ์เป็น ${impersonate}`
+    : "Service Account (ไม่มีโควตา — คาดว่าจะล้มเหลว)";
+  auth = new google.auth.GoogleAuth({
+    credentials,
+    scopes: ["https://www.googleapis.com/auth/drive"],
+    clientOptions: impersonate ? { subject: impersonate } : undefined,
+  });
+}
+
+console.log(`โหมดยืนยันตัวตน : ${mode}`);
+console.log(`Folder ID       : ${folderId}\n`);
+
 const drive = google.drive({ version: "v3", auth });
 
 let fileId;
@@ -73,8 +89,14 @@ try {
   console.error(`\nอัปโหลดไม่สำเร็จ: ${err.message}\n`);
   if (err.message.includes("storage quota")) {
     console.error("แปลว่ายังไม่ได้ตั้งค่าอย่างใดอย่างหนึ่งต่อไปนี้:");
-    console.error("  1) เปิด domain-wide delegation แล้วใส่ GOOGLE_IMPERSONATE_USER");
-    console.error("  2) ย้ายโฟลเดอร์รูปไปไว้ใน Shared Drive");
+    console.error("  1) ขอ OAuth refresh token ด้วย npm run get-token");
+    console.error("  2) เปิด domain-wide delegation แล้วใส่ GOOGLE_IMPERSONATE_USER");
+    console.error("  3) ย้ายโฟลเดอร์รูปไปไว้ใน Shared Drive");
+  }
+  if (err.message.includes("invalid_grant")) {
+    console.error("refresh token ใช้ไม่ได้แล้ว ให้รัน npm run get-token ใหม่");
+    console.error("หมายเหตุ: ถ้า OAuth consent screen อยู่โหมด Testing แบบ External");
+    console.error("          token จะหมดอายุใน 7 วัน ให้ตั้งเป็น Internal");
   }
   if (err.message.includes("unauthorized_client")) {
     console.error("domain-wide delegation ยังไม่ได้อนุญาต scope ให้ Client ID นี้:");
