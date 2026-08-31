@@ -72,8 +72,33 @@ try {
   const drives = await drive.drives.list({ pageSize: 20 });
   const list = drives.data.drives || [];
   console.log(`\nShared Drive ที่ Service Account เข้าถึงได้: ${list.length} รายการ`);
+
+  if (list.length === 0) {
+    console.log("  (ยังไม่มี — สร้าง Shared Drive แล้วเพิ่ม Service Account เป็น Content manager)");
+  }
+
   for (const d of list) {
-    console.log(`  - ${d.name} (id=${d.id})`);
+    console.log(`\n  Shared Drive: ${d.name}`);
+    console.log(`    driveId: ${d.id}`);
+
+    const children = await drive.files.list({
+      q: `'${d.id}' in parents and mimeType = 'application/vnd.google-apps.folder' and trashed = false`,
+      fields: "files(id,name)",
+      supportsAllDrives: true,
+      includeItemsFromAllDrives: true,
+      corpora: "drive",
+      driveId: d.id,
+    });
+
+    const folders = children.data.files || [];
+    if (folders.length === 0) {
+      console.log(`    โฟลเดอร์ข้างใน: ไม่มี — ใช้ driveId ข้างบนเป็น GOOGLE_DRIVE_FOLDER_ID ได้เลย`);
+    } else {
+      console.log(`    โฟลเดอร์ข้างใน:`);
+      for (const f of folders) {
+        console.log(`      - ${f.name}  ->  GOOGLE_DRIVE_FOLDER_ID=${f.id}`);
+      }
+    }
   }
 } catch (err) {
   console.log(`\nไม่สามารถอ่านรายการ Shared Drive: ${err.message}`);
