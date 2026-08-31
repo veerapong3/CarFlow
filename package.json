@@ -10,7 +10,8 @@
     "setup-sheet": "node scripts/init-google-sheet.mjs",
     "check-drive": "node scripts/check-drive.mjs",
     "get-token": "node scripts/get-drive-token.mjs",
-    "test-upload": "node scripts/test-drive-upload.mjs"
+    "test-upload": "node scripts/test-drive-upload.mjs",
+    "e2e": "node scripts/e2e-test.mjs"
   },
   "dependencies": {
     "googleapis": "^144.0.0",
