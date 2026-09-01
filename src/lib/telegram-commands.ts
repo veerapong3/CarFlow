@@ -26,6 +26,7 @@ import {
   chatMenuKeyboard,
   mainInlineMenu,
   MENU_BUTTON,
+  BOOKING_SITE_URL,
 } from "./telegram-format";
 import { getAllVehicles } from "./vehicles";
 
@@ -284,6 +285,19 @@ function dayReport(date: Date, vehicles: Vehicle[], bookings: Booking[]): string
   return lines.join("\n").trim();
 }
 
+export function websiteReply(): TelegramReply {
+  return {
+    text: [
+      "🌐 <b>เว็บจองรถโรงเรียน</b>",
+      "",
+      `<a href="${BOOKING_SITE_URL}">${BOOKING_SITE_URL}</a>`,
+    ].join("\n"),
+    replyMarkup: {
+      inline_keyboard: [[{ text: "🌐 เปิดเว็บจองรถ", url: BOOKING_SITE_URL }]],
+    },
+  };
+}
+
 export function helpReply(): TelegramReply {
   return {
     text: [
@@ -295,6 +309,7 @@ export function helpReply(): TelegramReply {
       "<code>/ว่าง 15/9</code> — ดูรถว่างวันที่ระบุ",
       "<code>/ว่างเดือน</code> — ดูทั้งเดือนนี้",
       "<code>/ยกเลิก</code> — ยกเลิกการจองที่มีอยู่",
+      "<code>/เว็บ</code> — เปิดเว็บจองรถ",
       "<code>/เมนู</code> — แสดงเมนูนี้อีกครั้ง",
       "",
       "วันที่ใช้ได้เช่น 15/9, 15/9/2569, 2026-09-15",
@@ -495,6 +510,15 @@ export async function handleTelegramCommand(
 
   if (cmd === "list" || cmd === "รายการ" || menuLabel === MENU_BUTTON.list) {
     return [await bookingListReply("manage")];
+  }
+
+  if (
+    cmd === "web" ||
+    cmd === "site" ||
+    cmd === "เว็บ" ||
+    menuLabel === MENU_BUTTON.web
+  ) {
+    return [websiteReply()];
   }
 
   if (isSlash) {

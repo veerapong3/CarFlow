@@ -2,7 +2,7 @@ import type { Booking } from "@/types";
 import { getSettings } from "./settings";
 import { formatBookingRange } from "./booking-dates";
 import { formatBookerName } from "./person-name";
-import { destinationLine, escapeHtml, chatMenuKeyboard } from "./telegram-format";
+import { destinationLine, escapeHtml, chatMenuKeyboard, BOOKING_SITE_URL } from "./telegram-format";
 
 const TELEGRAM_API = "https://api.telegram.org/bot";
 
@@ -129,6 +129,7 @@ export async function setTelegramWebhook(webhookUrl: string): Promise<boolean> {
   });
   if (!res.ok) return false;
   await setTelegramCommands();
+  await setTelegramMenuButton();
   return true;
 }
 
@@ -155,6 +156,10 @@ export async function setTelegramCommands(): Promise<boolean> {
           description: "ยกเลิกการจองที่มีอยู่",
         },
         {
+          command: "web",
+          description: "เปิดเว็บจองรถ",
+        },
+        {
           command: "menu",
           description: "แสดงเมนูในแชท",
         },
@@ -163,6 +168,25 @@ export async function setTelegramCommands(): Promise<boolean> {
           description: "วิธีใช้คำสั่งบอท",
         },
       ],
+    }),
+  });
+  return res.ok;
+}
+
+export async function setTelegramMenuButton(): Promise<boolean> {
+  const settings = await getSettings();
+  const token = settings.telegramBotToken || process.env.TELEGRAM_BOT_TOKEN;
+  if (!token) return false;
+
+  const res = await fetch(`${TELEGRAM_API}${token}/setChatMenuButton`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      menu_button: {
+        type: "web_app",
+        text: "เว็บจองรถ",
+        web_app: { url: BOOKING_SITE_URL },
+      },
     }),
   });
   return res.ok;
