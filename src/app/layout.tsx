@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Sarabun } from "next/font/google";
 import "./globals.css";
 import Header from "@/components/Header";
+import Footer from "@/components/Footer";
 
 const sarabun = Sarabun({
   subsets: ["latin", "thai"],
@@ -29,9 +30,12 @@ export default function RootLayout({
 }) {
   return (
     <html lang="th">
-      <body className={`${sarabun.className} min-h-screen`}>
+      <body className={`${sarabun.className} flex min-h-screen flex-col`}>
         <Header />
-        <main className="mx-auto max-w-7xl px-4 py-8 sm:px-6">{children}</main>
+        <main className="mx-auto w-full max-w-7xl flex-1 px-4 py-8 sm:px-6">
+          {children}
+        </main>
+        <Footer />
       </body>
     </html>
   );
