@@ -13,6 +13,13 @@ export const metadata: Metadata = {
   title: "CarFlow — ระบบจองรถ โรงเรียนดอนตาลวิทยา",
   description:
     "ระบบจองรถโรงเรียนดอนตาลวิทยา สพม.มุกดาหาร — จองรถออนไลน์ ปฏิทินการใช้งาน",
+  icons: {
+    icon: [
+      { url: "/icon.svg", type: "image/svg+xml" },
+      { url: "/favicon.png", sizes: "32x32", type: "image/png" },
+    ],
+    apple: "/apple-icon.png",
+  },
 };
 
 export default function RootLayout({
