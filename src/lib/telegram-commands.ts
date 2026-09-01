@@ -126,8 +126,8 @@ export function parseAvailabilityArg(
 
   if (/^\d{1,2}$/.test(raw)) {
     const day = parseInt(raw, 10);
-    let year = now.getFullYear();
-    let month = now.getMonth() + 1;
+    const year = now.getFullYear();
+    const month = now.getMonth() + 1;
     let date = makeDate(year, month, day);
     if (date && isBefore(date, startOfDay(now))) {
       const next = addMonths(now, 1);
