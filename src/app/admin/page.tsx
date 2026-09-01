@@ -15,6 +15,7 @@ import {
 } from "lucide-react";
 import { formatBookingRange } from "@/lib/booking-dates";
 import Link from "next/link";
+import ExportButtons from "@/components/ExportButtons";
 
 export default function AdminDashboard() {
   const { password, ready, login, logout } = useAdminAuth();
@@ -77,15 +78,20 @@ export default function AdminDashboard() {
 
   return (
     <div>
-      <div className="mb-8 flex items-center justify-between">
+      <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <h1 className="text-2xl font-bold text-slate-900">Dashboard</h1>
-          <p className="text-slate-600">สรุปภาพรวมการใช้รถโรงเรียน</p>
+          <p className="text-slate-600">
+            สรุปภาพรวมการใช้รถโรงเรียน — ส่งออก CSV หรือ Excel ได้
+          </p>
         </div>
-        <button type="button" className="btn-secondary" onClick={logout}>
-          <LogOut className="h-4 w-4" />
-          ออกจากระบบ
-        </button>
+        <div className="flex flex-wrap items-center gap-2">
+          <ExportButtons password={password} />
+          <button type="button" className="btn-secondary" onClick={logout}>
+            <LogOut className="h-4 w-4" />
+            ออกจากระบบ
+          </button>
+        </div>
       </div>
 
       <div className="mb-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">

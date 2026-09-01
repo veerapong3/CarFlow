@@ -388,6 +388,44 @@ try {
   const dash = await json(await fetch(`${BASE}/api/dashboard`));
   check("Dashboard ตอบข้อมูลได้", typeof dash.totalVehicles === "number");
   check("นับรถที่ใช้งานได้", dash.totalVehicles >= 1);
+
+  // ---- 11. ส่งออกสถิติ ----
+  console.log("\n11) ส่งออกสถิติ CSV / Excel");
+  const denyExport = await fetch(`${BASE}/api/export`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ password: "wrong", format: "csv" }),
+  });
+  check("ส่งออกโดยไม่มีสิทธิ์ถูกปฏิเสธ", denyExport.status === 401);
+
+  const csvRes = await fetch(`${BASE}/api/export`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ password, format: "csv" }),
+  });
+  const csvBuf = Buffer.from(await csvRes.arrayBuffer());
+  const csvText = csvBuf.toString("utf8");
+  check("ส่งออก CSV สำเร็จ", csvRes.ok, csvText.slice(0, 120));
+  check(
+    "CSV มีหัวข้อสถิติและรายการจอง",
+    csvText.includes("สรุปสถิติ") && csvText.includes("รายการจอง")
+  );
+  check(
+    "CSV มี BOM สำหรับ Excel",
+    csvBuf[0] === 0xef && csvBuf[1] === 0xbb && csvBuf[2] === 0xbf
+  );
+
+  const xlsxRes = await fetch(`${BASE}/api/export`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ password, format: "xlsx" }),
+  });
+  const xlsxBuf = Buffer.from(await xlsxRes.arrayBuffer());
+  check("ส่งออก Excel สำเร็จ", xlsxRes.ok && xlsxBuf.length > 100);
+  check(
+    "ไฟล์ Excel เป็น zip/xlsx",
+    xlsxBuf[0] === 0x50 && xlsxBuf[1] === 0x4b
+  );
 } catch (err) {
   failed++;
   console.log(`\nเกิดข้อผิดพลาดระหว่างทดสอบ: ${err.message}`);
