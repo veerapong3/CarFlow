@@ -1,4 +1,4 @@
-import type { Vehicle, VehicleFormData } from "@/types";
+import type { Vehicle, VehicleFormData, VehicleStatus } from "@/types";
 import {
   driveImageUrl,
   generateId,
@@ -6,6 +6,11 @@ import {
   getSpreadsheetId,
   isGoogleConfigured,
 } from "./google-auth";
+import {
+  isVehicleBookable,
+  parseVehicleStatus,
+  resolveVehicleStatus,
+} from "./vehicle-status";
 
 const SHEET = "Vehicles";
 const HEADERS = [
@@ -20,7 +25,12 @@ const HEADERS = [
   "active",
 ];
 
+function withStatus(status: VehicleStatus): Pick<Vehicle, "status" | "active"> {
+  return { status, active: isVehicleBookable(status) };
+}
+
 function rowToVehicle(row: string[]): Vehicle {
+  const status = parseVehicleStatus(row[8]);
   return {
     id: row[0] || "",
     brand: row[1] || "",
@@ -31,7 +41,7 @@ function rowToVehicle(row: string[]): Vehicle {
     seats: parseInt(row[6] || "0", 10),
     imageDriveId: row[7] || undefined,
     imageUrl: row[7] ? driveImageUrl(row[7]) : undefined,
-    active: row[8] !== "false",
+    ...withStatus(status),
   };
 }
 
@@ -45,7 +55,7 @@ function vehicleToRow(v: Vehicle): string[] {
     v.driver,
     String(v.seats),
     v.imageDriveId || "",
-    v.active ? "true" : "false",
+    v.status || (v.active ? "available" : "inactive"),
   ];
 }
 
@@ -59,7 +69,7 @@ const DEMO_VEHICLES: Vehicle[] = [
     licensePlate: "กข 1234 มก",
     driver: "นายสมชาย ใจดี",
     seats: 12,
-    active: true,
+    ...withStatus("available"),
   },
   {
     id: "demo-2",
@@ -69,14 +79,14 @@ const DEMO_VEHICLES: Vehicle[] = [
     licensePlate: "กค 5678 มก",
     driver: "นายสมศักดิ์ รักเรียน",
     seats: 7,
-    active: true,
+    ...withStatus("available"),
   },
 ];
 
 export async function getAllVehicles(activeOnly = false): Promise<Vehicle[]> {
   if (!isGoogleConfigured()) {
     return activeOnly
-      ? DEMO_VEHICLES.filter((v) => v.active)
+      ? DEMO_VEHICLES.filter((v) => isVehicleBookable(v.status))
       : DEMO_VEHICLES;
   }
 
@@ -88,7 +98,7 @@ export async function getAllVehicles(activeOnly = false): Promise<Vehicle[]> {
 
   const rows = res.data.values || [];
   let vehicles = rows.filter((r) => r[0]).map(rowToVehicle);
-  if (activeOnly) vehicles = vehicles.filter((v) => v.active);
+  if (activeOnly) vehicles = vehicles.filter((v) => isVehicleBookable(v.status));
   return vehicles;
 }
 
@@ -98,6 +108,7 @@ export async function getVehicleById(id: string): Promise<Vehicle | null> {
 }
 
 export async function createVehicle(data: VehicleFormData): Promise<Vehicle> {
+  const status = resolveVehicleStatus(data, "available");
   const vehicle: Vehicle = {
     id: generateId(),
     brand: data.brand,
@@ -108,7 +119,7 @@ export async function createVehicle(data: VehicleFormData): Promise<Vehicle> {
     seats: data.seats,
     imageDriveId: data.imageDriveId,
     imageUrl: data.imageDriveId ? driveImageUrl(data.imageDriveId) : undefined,
-    active: data.active !== false,
+    ...withStatus(status),
   };
 
   if (!isGoogleConfigured()) {
@@ -134,12 +145,15 @@ export async function updateVehicle(
   if (!isGoogleConfigured()) {
     const idx = DEMO_VEHICLES.findIndex((v) => v.id === id);
     if (idx === -1) return null;
-    const updated = {
-      ...DEMO_VEHICLES[idx],
+    const existing = DEMO_VEHICLES[idx];
+    const status = resolveVehicleStatus(data, existing.status);
+    const updated: Vehicle = {
+      ...existing,
       ...data,
       imageUrl: data.imageDriveId
         ? driveImageUrl(data.imageDriveId)
-        : DEMO_VEHICLES[idx].imageUrl,
+        : existing.imageUrl,
+      ...withStatus(status),
     };
     DEMO_VEHICLES[idx] = updated;
     return updated;
@@ -156,6 +170,7 @@ export async function updateVehicle(
   if (rowIndex === -1) return null;
 
   const existing = rowToVehicle(rows[rowIndex]);
+  const status = resolveVehicleStatus(data, existing.status);
   const updated: Vehicle = {
     ...existing,
     ...data,
@@ -163,7 +178,7 @@ export async function updateVehicle(
     imageUrl: data.imageDriveId
       ? driveImageUrl(data.imageDriveId)
       : existing.imageUrl,
-    active: data.active !== undefined ? data.active : existing.active,
+    ...withStatus(status),
   };
 
   await sheets.spreadsheets.values.update({

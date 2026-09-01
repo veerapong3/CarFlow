@@ -1,6 +1,7 @@
 import type { Booking, BookingFormData, BookingStatus } from "@/types";
 import { generateId, getSheetsClient, getSpreadsheetId, isGoogleConfigured } from "./google-auth";
 import { getAllVehicles } from "./vehicles";
+import { isVehicleBookable } from "./vehicle-status";
 
 const SHEET = "Bookings";
 
@@ -138,6 +139,9 @@ export async function createBooking(data: BookingFormData): Promise<Booking> {
   const vehicles = await getAllVehicles();
   const vehicle = vehicles.find((v) => v.id === data.vehicleId);
   if (!vehicle) throw new Error("ไม่พบข้อมูลรถ");
+  if (!isVehicleBookable(vehicle.status)) {
+    throw new Error("รถคันนี้ไม่พร้อมให้จอง (ระหว่างซ่อมหรือไม่ใช้งาน)");
+  }
   if (data.passengers > vehicle.seats) {
     throw new Error(`จำนวนผู้โดยสารเกินที่นั่ง (สูงสุด ${vehicle.seats} ที่)`);
   }

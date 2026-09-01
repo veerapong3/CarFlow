@@ -29,7 +29,7 @@ export default function AdminVehiclesPage() {
         <div>
           <h1 className="text-2xl font-bold text-slate-900">จัดการรถ</h1>
           <p className="text-slate-600">
-            เพิ่ม ลบ แก้ไข ข้อมูลรถ — รูปภาพจาก Google Drive (lh3)
+            เพิ่ม ลบ แก้ไขข้อมูลรถ และเปลี่ยนสถานะ เช่น ใช้งานได้ หรือระหว่างซ่อม
           </p>
         </div>
         <button type="button" className="btn-secondary" onClick={logout}>

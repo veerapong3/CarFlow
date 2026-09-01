@@ -2,6 +2,7 @@ import type { DashboardStats, Settings } from "@/types";
 import { getAllBookings } from "./bookings";
 import { getSheetsClient, getSpreadsheetId, isGoogleConfigured } from "./google-auth";
 import { getAllVehicles } from "./vehicles";
+import { isVehicleBookable } from "./vehicle-status";
 
 const SHEET = "Settings";
 
@@ -105,7 +106,7 @@ export async function getDashboardStats(): Promise<DashboardStats> {
     totalBookingsThisMonth: monthBookings.length,
     pendingBookings: pending,
     approvedBookings: approved,
-    totalVehicles: vehicles.filter((v) => v.active).length,
+    totalVehicles: vehicles.filter((v) => isVehicleBookable(v.status)).length,
     recentBookings: bookings.slice(0, 10),
   };
 }

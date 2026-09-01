@@ -1,10 +1,12 @@
 "use client";
 
 import { useState } from "react";
-import type { Vehicle, VehicleFormData } from "@/types";
+import type { Vehicle, VehicleFormData, VehicleStatus } from "@/types";
 import ImageLightbox from "./ImageLightbox";
 import ImageUpload from "./ImageUpload";
+import { VEHICLE_STATUSES } from "@/lib/vehicle-status";
 import { Pencil, Trash2, Plus } from "lucide-react";
+import clsx from "clsx";
 
 interface VehicleTableProps {
   vehicles: Vehicle[];
@@ -20,6 +22,7 @@ const EMPTY_FORM: VehicleFormData = {
   driver: "",
   seats: 12,
   imageDriveId: "",
+  status: "available",
   active: true,
 };
 
@@ -34,6 +37,7 @@ export default function VehicleTable({
   const [imagePreviewUrl, setImagePreviewUrl] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [statusSavingId, setStatusSavingId] = useState<string | null>(null);
 
   function openCreate() {
     setEditing(null);
@@ -53,6 +57,7 @@ export default function VehicleTable({
       driver: v.driver,
       seats: v.seats,
       imageDriveId: v.imageDriveId || "",
+      status: v.status || (v.active ? "available" : "inactive"),
       active: v.active,
     });
     setImagePreviewUrl(v.imageUrl || "");
@@ -81,6 +86,24 @@ export default function VehicleTable({
       setError(err instanceof Error ? err.message : "เกิดข้อผิดพลาด");
     } finally {
       setLoading(false);
+    }
+  }
+
+  async function handleStatusChange(id: string, status: VehicleStatus) {
+    setStatusSavingId(id);
+    try {
+      const res = await fetch(`/api/vehicles/${id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ password, status }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error);
+      onRefresh();
+    } catch (err) {
+      alert(err instanceof Error ? err.message : "เปลี่ยนสถานะไม่สำเร็จ");
+    } finally {
+      setStatusSavingId(null);
     }
   }
 
@@ -169,6 +192,28 @@ export default function VehicleTable({
                 }
               />
             </div>
+            <div>
+              <label className="label">สถานะรถ *</label>
+              <select
+                className="input-field"
+                value={form.status || "available"}
+                onChange={(e) =>
+                  setForm({
+                    ...form,
+                    status: e.target.value as VehicleStatus,
+                  })
+                }
+              >
+                {VEHICLE_STATUSES.map((s) => (
+                  <option key={s.value} value={s.value}>
+                    {s.label}
+                  </option>
+                ))}
+              </select>
+              <p className="mt-1 text-xs text-slate-500">
+                รถที่ระหว่างซ่อมหรือไม่ใช้งาน จะไม่แสดงในหน้าจอง
+              </p>
+            </div>
             <div className="sm:col-span-2">
               <label className="label">รูปภาพรถ</label>
               <ImageUpload
@@ -187,18 +232,6 @@ export default function VehicleTable({
               <p className="mt-1 text-xs text-slate-500">
                 อัปโหลดตรงไป Google Drive โฟลเดอร์โรงเรียน แสดงผ่าน lh3.googleusercontent.com
               </p>
-            </div>
-            <div>
-              <label className="flex items-center gap-2">
-                <input
-                  type="checkbox"
-                  checked={form.active !== false}
-                  onChange={(e) =>
-                    setForm({ ...form, active: e.target.checked })
-                  }
-                />
-                <span className="text-sm">ใช้งานได้</span>
-              </label>
             </div>
             {error && (
               <div className="sm:col-span-2 rounded-lg bg-red-50 p-3 text-sm text-red-700">
@@ -236,61 +269,79 @@ export default function VehicleTable({
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100">
-            {vehicles.map((v) => (
-              <tr key={v.id} className="hover:bg-slate-50">
-                <td className="px-4 py-3">
-                  {v.imageUrl ? (
-                    <div className="relative h-12 w-16">
-                      <ImageLightbox
-                        src={v.imageUrl}
-                        alt={`${v.brand} ${v.model}`}
-                        className="h-12 w-16"
-                      />
+            {vehicles.map((v) => {
+              const status = v.status || (v.active ? "available" : "inactive");
+              const style =
+                VEHICLE_STATUSES.find((s) => s.value === status)?.className ||
+                "bg-slate-100 text-slate-600";
+              return (
+                <tr key={v.id} className="hover:bg-slate-50">
+                  <td className="px-4 py-3">
+                    {v.imageUrl ? (
+                      <div className="relative h-12 w-16">
+                        <ImageLightbox
+                          src={v.imageUrl}
+                          alt={`${v.brand} ${v.model}`}
+                          className="h-12 w-16"
+                        />
+                      </div>
+                    ) : (
+                      <span className="text-slate-400">—</span>
+                    )}
+                  </td>
+                  <td className="px-4 py-3 font-medium">
+                    {v.brand} {v.model}
+                  </td>
+                  <td className="px-4 py-3">{v.color}</td>
+                  <td className="px-4 py-3">{v.licensePlate}</td>
+                  <td className="px-4 py-3">{v.driver}</td>
+                  <td className="px-4 py-3">{v.seats}</td>
+                  <td className="px-4 py-3">
+                    <select
+                      value={status}
+                      disabled={statusSavingId === v.id}
+                      onChange={(e) =>
+                        handleStatusChange(
+                          v.id,
+                          e.target.value as VehicleStatus
+                        )
+                      }
+                      className={clsx(
+                        "rounded-full border-0 px-2.5 py-1 text-xs font-medium focus:outline-none focus:ring-2 focus:ring-primary-500/40 disabled:opacity-60",
+                        style
+                      )}
+                      title="เปลี่ยนสถานะรถ"
+                    >
+                      {VEHICLE_STATUSES.map((s) => (
+                        <option key={s.value} value={s.value}>
+                          {s.label}
+                        </option>
+                      ))}
+                    </select>
+                  </td>
+                  <td className="px-4 py-3">
+                    <div className="flex gap-1">
+                      <button
+                        type="button"
+                        onClick={() => openEdit(v)}
+                        className="rounded p-1.5 text-slate-500 hover:bg-slate-100 hover:text-primary-600"
+                        title="แก้ไข"
+                      >
+                        <Pencil className="h-4 w-4" />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleDelete(v.id)}
+                        className="rounded p-1.5 text-slate-500 hover:bg-red-50 hover:text-red-600"
+                        title="ลบ"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </button>
                     </div>
-                  ) : (
-                    <span className="text-slate-400">—</span>
-                  )}
-                </td>
-                <td className="px-4 py-3 font-medium">
-                  {v.brand} {v.model}
-                </td>
-                <td className="px-4 py-3">{v.color}</td>
-                <td className="px-4 py-3">{v.licensePlate}</td>
-                <td className="px-4 py-3">{v.driver}</td>
-                <td className="px-4 py-3">{v.seats}</td>
-                <td className="px-4 py-3">
-                  <span
-                    className={
-                      v.active
-                        ? "text-emerald-600"
-                        : "text-slate-400 line-through"
-                    }
-                  >
-                    {v.active ? "ใช้งาน" : "ปิด"}
-                  </span>
-                </td>
-                <td className="px-4 py-3">
-                  <div className="flex gap-1">
-                    <button
-                      type="button"
-                      onClick={() => openEdit(v)}
-                      className="rounded p-1.5 text-slate-500 hover:bg-slate-100 hover:text-primary-600"
-                      title="แก้ไข"
-                    >
-                      <Pencil className="h-4 w-4" />
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => handleDelete(v.id)}
-                      className="rounded p-1.5 text-slate-500 hover:bg-red-50 hover:text-red-600"
-                      title="ลบ"
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </button>
-                  </div>
-                </td>
-              </tr>
-            ))}
+                  </td>
+                </tr>
+              );
+            })}
             {vehicles.length === 0 && (
               <tr>
                 <td colSpan={8} className="px-4 py-8 text-center text-slate-500">

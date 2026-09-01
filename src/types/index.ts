@@ -1,4 +1,5 @@
 export type BookingStatus = "pending" | "approved" | "cancelled" | "completed";
+export type VehicleStatus = "available" | "repair" | "inactive";
 
 export interface Vehicle {
   id: string;
@@ -10,6 +11,8 @@ export interface Vehicle {
   seats: number;
   imageDriveId?: string;
   imageUrl?: string;
+  status: VehicleStatus;
+  /** true เมื่อ status เป็น available — คงไว้เพื่อโค้ดเดิมที่กรองรถว่าง */
   active: boolean;
 }
 
@@ -69,5 +72,6 @@ export interface VehicleFormData {
   driver: string;
   seats: number;
   imageDriveId?: string;
+  status?: VehicleStatus;
   active?: boolean;
 }

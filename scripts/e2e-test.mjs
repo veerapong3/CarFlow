@@ -144,6 +144,41 @@ try {
     "รถปรากฏในรายการ",
     Array.isArray(list) && list.some((v) => v.id === vehicle.id)
   );
+  check(
+    "สถานะเริ่มต้นเป็นใช้งานได้",
+    vehicle.status === "available" && vehicle.active === true
+  );
+
+  const repairRes = await fetch(`${BASE}/api/vehicles/${vehicle.id}`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ password, status: "repair" }),
+  });
+  const repaired = await json(repairRes);
+  check(
+    "เปลี่ยนเป็นระหว่างซ่อมได้",
+    repairRes.ok && repaired.status === "repair" && repaired.active === false,
+    repaired.error
+  );
+  const availRepair = await json(
+    await fetch(`${BASE}/api/bookings?date=${dateStr}&available=true`)
+  );
+  check(
+    "รถระหว่างซ่อมไม่ขึ้นให้จอง",
+    Array.isArray(availRepair) && !availRepair.includes(vehicle.id)
+  );
+
+  const restoreRes = await fetch(`${BASE}/api/vehicles/${vehicle.id}`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ password, status: "available" }),
+  });
+  const restored = await json(restoreRes);
+  check(
+    "เปลี่ยนกลับเป็นใช้งานได้",
+    restoreRes.ok && restored.status === "available",
+    restored.error
+  );
 
   // ---- 4. รถว่างในวันที่ทดสอบ ----
   console.log("\n4) ตรวจสอบรถว่าง");

@@ -43,7 +43,7 @@ export default function BookingForm({
       const allVehicles: Vehicle[] = await vehiclesRes.json();
       const availableIds: string[] = await availableRes.json();
       const available = allVehicles.filter(
-        (v) => v.active && availableIds.includes(v.id)
+        (v) => v.status === "available" && availableIds.includes(v.id)
       );
       setVehicles(available);
       if (available.length === 1) {
