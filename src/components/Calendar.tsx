@@ -1,27 +1,37 @@
 "use client";
 
+import { useState } from "react";
 import {
-  format,
-  startOfMonth,
-  endOfMonth,
-  eachDayOfInterval,
-  isSameMonth,
-  isSameDay,
+  addDays,
   addMonths,
-  subMonths,
+  differenceInCalendarDays,
+  eachDayOfInterval,
+  endOfMonth,
+  format,
   getDay,
+  isBefore,
+  isSameDay,
+  isSameMonth,
   isToday,
+  startOfDay,
+  startOfMonth,
+  subMonths,
 } from "date-fns";
 import { th } from "date-fns/locale";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import type { Booking } from "@/types";
 import clsx from "clsx";
-import { bookingEndDate, eachDateInRange } from "@/lib/booking-dates";
+import {
+  MAX_BOOKING_DAYS,
+  bookingEndDate,
+  eachDateInRange,
+} from "@/lib/booking-dates";
 
 interface CalendarProps {
   currentDate: Date;
   onDateChange: (date: Date) => void;
-  selectedDate: Date | null;
+  startDate: Date | null;
+  endDate: Date | null;
   onSelectDate: (date: Date) => void;
   bookings: Booking[];
 }
@@ -36,27 +46,66 @@ const STATUS_COLORS: Record<string, string> = {
 export default function Calendar({
   currentDate,
   onDateChange,
-  selectedDate,
+  startDate,
+  endDate,
   onSelectDate,
   bookings,
 }: CalendarProps) {
-  const monthStart = startOfMonth(currentDate);
-  const monthEnd = endOfMonth(currentDate);
-  const days = eachDayOfInterval({ start: monthStart, end: monthEnd });
-  const startPadding = getDay(monthStart);
+  const [hoverDate, setHoverDate] = useState<Date | null>(null);
+  const today = startOfDay(new Date());
+  const selectingEnd = Boolean(startDate && !endDate);
+  const previewEnd =
+    selectingEnd && hoverDate && !isBefore(hoverDate, startDate!)
+      ? hoverDate
+      : endDate;
 
-  const bookingsByDate = bookings.reduce<Record<string, Booking[]>>((acc, b) => {
-    if (b.status === "cancelled") return acc;
-    for (const day of eachDateInRange(b.date, bookingEndDate(b))) {
-      if (!acc[day]) acc[day] = [];
-      acc[day].push(b);
-    }
-    return acc;
-  }, {});
+  const previewDays =
+    startDate && previewEnd
+      ? differenceInCalendarDays(previewEnd, startDate) + 1
+      : 0;
+
+  const bookingsByDate = bookings.reduce<Record<string, Booking[]>>(
+    (acc, b) => {
+      if (b.status === "cancelled") return acc;
+      for (const day of eachDateInRange(b.date, bookingEndDate(b))) {
+        if (!acc[day]) acc[day] = [];
+        acc[day].push(b);
+      }
+      return acc;
+    },
+    {}
+  );
+
+  const months = [currentDate, addMonths(currentDate, 1)];
 
   return (
     <div className="card">
-      <div className="mb-6 flex items-center justify-between">
+      <div className="mb-5 grid grid-cols-2 overflow-hidden rounded-xl border border-slate-200">
+        <DateChip
+          label="วันเริ่มต้น"
+          placeholder="เลือกวัน"
+          date={startDate}
+          active={!startDate}
+        />
+        <DateChip
+          label="วันสิ้นสุด"
+          placeholder="เลือกวัน"
+          date={endDate}
+          active={selectingEnd}
+        />
+      </div>
+
+      <p className="mb-4 text-sm text-slate-500">
+        {!startDate
+          ? "คลิกวันเริ่มต้น แล้วคลิกวันสิ้นสุดบนปฏิทิน — คลิกวันเดิมอีกครั้งถ้าจองวันเดียว"
+          : selectingEnd
+            ? `เลือกวันสิ้นสุด (สูงสุด ${MAX_BOOKING_DAYS} วัน) หรือคลิกวันเริ่มต้นอีกครั้งถ้าจองวันเดียว`
+            : previewDays > 1
+              ? `เลือกแล้ว ${previewDays} วัน — คลิกวันใหม่ถ้าต้องการเลือกช่วงอื่น`
+              : "จอง 1 วัน — คลิกวันใหม่ถ้าต้องการเลือกช่วงอื่น"}
+      </p>
+
+      <div className="mb-4 flex items-center justify-between">
         <button
           type="button"
           onClick={() => onDateChange(subMonths(currentDate, 1))}
@@ -65,9 +114,14 @@ export default function Calendar({
         >
           <ChevronLeft className="h-5 w-5" />
         </button>
-        <h2 className="text-lg font-semibold capitalize text-slate-900">
+        <div className="hidden text-sm font-semibold text-slate-900 lg:block">
           {format(currentDate, "MMMM yyyy", { locale: th })}
-        </h2>
+          <span className="mx-2 font-normal text-slate-300">|</span>
+          {format(addMonths(currentDate, 1), "MMMM yyyy", { locale: th })}
+        </div>
+        <div className="text-sm font-semibold capitalize text-slate-900 lg:hidden">
+          {format(currentDate, "MMMM yyyy", { locale: th })}
+        </div>
         <button
           type="button"
           onClick={() => onDateChange(addMonths(currentDate, 1))}
@@ -78,67 +132,32 @@ export default function Calendar({
         </button>
       </div>
 
-      <div className="mb-2 grid grid-cols-7 gap-1 text-center text-xs font-medium text-slate-500">
-        {["อา", "จ", "อ", "พ", "พฤ", "ศ", "ส"].map((d) => (
-          <div key={d} className="py-2">
-            {d}
+      <div
+        className="grid gap-8 lg:grid-cols-2"
+        onMouseLeave={() => setHoverDate(null)}
+      >
+        {months.map((month, index) => (
+          <div
+            key={format(month, "yyyy-MM")}
+            className={index === 1 ? "hidden lg:block" : undefined}
+          >
+            <h2 className="mb-3 hidden text-center text-sm font-semibold capitalize text-slate-800 lg:block">
+              {format(month, "MMMM yyyy", { locale: th })}
+            </h2>
+            <MonthGrid
+              month={month}
+              today={today}
+              startDate={startDate}
+              endDate={endDate}
+              rangeStart={startDate}
+              rangeEnd={previewEnd}
+              selectingEnd={selectingEnd}
+              bookingsByDate={bookingsByDate}
+              onSelectDate={onSelectDate}
+              onHoverDate={setHoverDate}
+            />
           </div>
         ))}
-      </div>
-
-      <div className="grid grid-cols-7 gap-1">
-        {Array.from({ length: startPadding }).map((_, i) => (
-          <div key={`pad-${i}`} className="aspect-square" />
-        ))}
-
-        {days.map((day) => {
-          const dateStr = format(day, "yyyy-MM-dd");
-          const dayBookings = bookingsByDate[dateStr] || [];
-          const activeBookings = dayBookings.filter((b) => b.status !== "cancelled");
-          const isSelected = selectedDate && isSameDay(day, selectedDate);
-          const isPast = day < new Date(new Date().setHours(0, 0, 0, 0));
-
-          return (
-            <button
-              key={dateStr}
-              type="button"
-              onClick={() => onSelectDate(day)}
-              disabled={isPast}
-              className={clsx(
-                "relative aspect-square rounded-lg p-1 text-sm transition",
-                isSelected && "ring-2 ring-primary-500 ring-offset-1",
-                isToday(day) && "font-bold",
-                isPast
-                  ? "cursor-not-allowed text-slate-300"
-                  : "hover:bg-primary-50 text-slate-700",
-                !isSameMonth(day, currentDate) && "text-slate-300"
-              )}
-            >
-              <span
-                className={clsx(
-                  "flex h-full w-full flex-col items-center justify-center rounded-md",
-                  isSelected && "bg-primary-100",
-                  isToday(day) && !isSelected && "bg-school-green/10"
-                )}
-              >
-                {format(day, "d")}
-                {activeBookings.length > 0 && (
-                  <div className="mt-0.5 flex gap-0.5">
-                    {activeBookings.slice(0, 3).map((b) => (
-                      <span
-                        key={b.id}
-                        className={clsx(
-                          "h-1.5 w-1.5 rounded-full",
-                          STATUS_COLORS[b.status] || "bg-slate-400"
-                        )}
-                      />
-                    ))}
-                  </div>
-                )}
-              </span>
-            </button>
-          );
-        })}
       </div>
 
       <div className="mt-4 flex flex-wrap gap-4 border-t border-slate-100 pt-4 text-xs text-slate-500">
@@ -151,6 +170,192 @@ export default function Calendar({
         <span className="flex items-center gap-1.5">
           <span className="h-2 w-2 rounded-full bg-blue-500" /> เสร็จสิ้น
         </span>
+        <span className="flex items-center gap-1.5">
+          <span className="h-2 w-2 rounded-full bg-primary-600" /> ช่วงที่เลือก
+        </span>
+      </div>
+    </div>
+  );
+}
+
+function DateChip({
+  label,
+  placeholder,
+  date,
+  active,
+}: {
+  label: string;
+  placeholder: string;
+  date: Date | null;
+  active: boolean;
+}) {
+  return (
+    <div
+      className={clsx(
+        "px-4 py-3",
+        active ? "bg-primary-50" : "bg-white",
+        label === "วันสิ้นสุด" && "border-l border-slate-200"
+      )}
+    >
+      <p className="text-[11px] font-medium uppercase tracking-wide text-slate-500">
+        {label}
+      </p>
+      <p
+        className={clsx(
+          "mt-0.5 text-sm font-semibold",
+          date ? "text-slate-900" : "text-slate-400"
+        )}
+      >
+        {date ? format(date, "d MMM yyyy", { locale: th }) : placeholder}
+      </p>
+    </div>
+  );
+}
+
+function MonthGrid({
+  month,
+  today,
+  startDate,
+  endDate,
+  rangeStart,
+  rangeEnd,
+  selectingEnd,
+  bookingsByDate,
+  onSelectDate,
+  onHoverDate,
+}: {
+  month: Date;
+  today: Date;
+  startDate: Date | null;
+  endDate: Date | null;
+  rangeStart: Date | null;
+  rangeEnd: Date | null;
+  selectingEnd: boolean;
+  bookingsByDate: Record<string, Booking[]>;
+  onSelectDate: (date: Date) => void;
+  onHoverDate: (date: Date | null) => void;
+}) {
+  const monthStart = startOfMonth(month);
+  const days = eachDayOfInterval({
+    start: monthStart,
+    end: endOfMonth(month),
+  });
+  const startPadding = getDay(monthStart);
+  const maxEnd = startDate ? addDays(startDate, MAX_BOOKING_DAYS - 1) : null;
+
+  return (
+    <div>
+      <div className="mb-1 grid grid-cols-7 text-center text-xs font-medium text-slate-500">
+        {["อา", "จ", "อ", "พ", "พฤ", "ศ", "ส"].map((d) => (
+          <div key={d} className="py-2">
+            {d}
+          </div>
+        ))}
+      </div>
+
+      <div className="grid grid-cols-7">
+        {Array.from({ length: startPadding }).map((_, i) => (
+          <div key={`pad-${i}`} className="aspect-square" />
+        ))}
+
+        {days.map((day) => {
+          const dateStr = format(day, "yyyy-MM-dd");
+          const activeBookings = bookingsByDate[dateStr] || [];
+          const isStart = Boolean(startDate && isSameDay(day, startDate));
+          const isConfirmedEnd = Boolean(endDate && isSameDay(day, endDate));
+          const isHoverEnd = Boolean(
+            selectingEnd && rangeEnd && isSameDay(day, rangeEnd) && !isStart
+          );
+          const isEnd = isConfirmedEnd || isHoverEnd;
+          const sameDayRange = Boolean(
+            startDate &&
+              rangeEnd &&
+              isSameDay(startDate, rangeEnd) &&
+              isStart
+          );
+          const inRange = Boolean(
+            rangeStart &&
+              rangeEnd &&
+              !isBefore(day, rangeStart) &&
+              !isBefore(rangeEnd, day)
+          );
+          const isPast = isBefore(day, today);
+          const beyondMax = Boolean(
+            selectingEnd && maxEnd && isBefore(maxEnd, day)
+          );
+          const disabled = isPast || beyondMax;
+          const isEndpoint = isStart || isEnd;
+
+          return (
+            <button
+              key={dateStr}
+              type="button"
+              disabled={disabled}
+              onClick={() => onSelectDate(day)}
+              onMouseEnter={() => {
+                if (!disabled) onHoverDate(day);
+              }}
+              aria-label={format(day, "d MMMM yyyy", { locale: th })}
+              className={clsx(
+                "relative aspect-square text-sm",
+                disabled
+                  ? "cursor-not-allowed text-slate-300"
+                  : "cursor-pointer text-slate-700",
+                !isSameMonth(day, month) && "text-slate-300"
+              )}
+            >
+              {inRange && !sameDayRange && (
+                <span
+                  className={clsx(
+                    "absolute inset-y-1 bg-primary-100",
+                    isStart && "left-1/2 right-0",
+                    isEnd && !isStart && "left-0 right-1/2",
+                    !isStart && !isEnd && "inset-x-0"
+                  )}
+                />
+              )}
+              <span
+                className={clsx(
+                  "relative z-[1] mx-auto flex h-[82%] w-[82%] flex-col items-center justify-center rounded-full",
+                  isToday(day) &&
+                    !isEndpoint &&
+                    "font-bold ring-1 ring-school-green/40",
+                  isStart || isConfirmedEnd
+                    ? "bg-primary-600 font-semibold text-white"
+                    : isHoverEnd
+                      ? "bg-primary-500 font-semibold text-white"
+                      : !disabled
+                        ? "hover:bg-primary-50"
+                        : undefined
+                )}
+              >
+                {format(day, "d")}
+                {isEndpoint && (
+                  <span className="text-[9px] leading-none">
+                    {sameDayRange
+                      ? "1 วัน"
+                      : isStart
+                        ? "เริ่ม"
+                        : "สิ้นสุด"}
+                  </span>
+                )}
+                {!isEndpoint && activeBookings.length > 0 && (
+                  <span className="mt-0.5 flex gap-0.5">
+                    {activeBookings.slice(0, 3).map((b) => (
+                      <span
+                        key={b.id}
+                        className={clsx(
+                          "h-1 w-1 rounded-full",
+                          STATUS_COLORS[b.status] || "bg-slate-400"
+                        )}
+                      />
+                    ))}
+                  </span>
+                )}
+              </span>
+            </button>
+          );
+        })}
       </div>
     </div>
   );

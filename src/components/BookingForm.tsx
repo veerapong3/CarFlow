@@ -1,35 +1,30 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { addDays, format } from "date-fns";
-import { th } from "date-fns/locale";
+import { format } from "date-fns";
 import { THAI_PROVINCES } from "@/lib/provinces";
 import type { Vehicle } from "@/types";
 import ImageLightbox from "./ImageLightbox";
-import {
-  MAX_BOOKING_DAYS,
-  bookingDayCount,
-  formatBookingRange,
-  formatYmd,
-} from "@/lib/booking-dates";
+import { bookingDayCount, formatBookingRange } from "@/lib/booking-dates";
 
 interface BookingFormProps {
-  selectedDate: Date;
+  startDate: Date;
+  endDate: Date;
   onSuccess: () => void;
   onCancel: () => void;
 }
 
 export default function BookingForm({
-  selectedDate,
+  startDate,
+  endDate,
   onSuccess,
   onCancel,
 }: BookingFormProps) {
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
-  const dateStr = format(selectedDate, "yyyy-MM-dd");
-  const maxEnd = formatYmd(addDays(selectedDate, MAX_BOOKING_DAYS - 1));
-  const [endDate, setEndDate] = useState(dateStr);
+  const dateStr = format(startDate, "yyyy-MM-dd");
+  const endStr = format(endDate, "yyyy-MM-dd");
 
   const [form, setForm] = useState({
     firstName: "",
@@ -43,18 +38,16 @@ export default function BookingForm({
   });
 
   useEffect(() => {
-    setEndDate(dateStr);
     setForm((f) => ({ ...f, vehicleId: "" }));
-  }, [dateStr]);
+  }, [dateStr, endStr]);
 
   useEffect(() => {
     async function load() {
-      const end = endDate < dateStr ? dateStr : endDate;
       const params = new URLSearchParams({
         date: dateStr,
         available: "true",
       });
-      if (end !== dateStr) params.set("endDate", end);
+      if (endStr !== dateStr) params.set("endDate", endStr);
 
       const [vehiclesRes, availableRes] = await Promise.all([
         fetch("/api/vehicles"),
@@ -77,12 +70,9 @@ export default function BookingForm({
       });
     }
     load();
-  }, [dateStr, endDate]);
+  }, [dateStr, endStr]);
 
-  const range = {
-    date: dateStr,
-    endDate: endDate < dateStr ? dateStr : endDate,
-  };
+  const range = { date: dateStr, endDate: endStr };
   const days = bookingDayCount(range);
 
   async function handleSubmit(e: React.FormEvent) {
@@ -97,7 +87,7 @@ export default function BookingForm({
         body: JSON.stringify({
           ...form,
           date: dateStr,
-          endDate: range.endDate,
+          endDate: endStr,
         }),
       });
       const data = await res.json();
@@ -118,25 +108,11 @@ export default function BookingForm({
         จองรถ — {formatBookingRange(range)}
       </h3>
       <p className="mb-6 text-sm text-slate-500">
-        กรอกข้อมูลการจองด้านล่าง ระบบจะแจ้ง Admin เพื่ออนุมัติ
+        {days > 1
+          ? `จองต่อเนื่อง ${days} วัน รถต้องว่างทุกวันในช่วงนี้`
+          : "จองวันเดียว"}{" "}
+        · กรอกข้อมูลด้านล่าง ระบบจะแจ้ง Admin เพื่ออนุมัติ
       </p>
-
-      <div className="mb-4">
-        <label className="label">วันสิ้นสุด (ถ้าจองหลายวันต่อเนื่อง)</label>
-        <input
-          className="input-field"
-          type="date"
-          min={dateStr}
-          max={maxEnd}
-          value={endDate < dateStr ? dateStr : endDate}
-          onChange={(e) => setEndDate(e.target.value || dateStr)}
-        />
-        <p className="mt-1 text-xs text-slate-500">
-          วันเริ่มต้นคือ {format(selectedDate, "d MMMM yyyy", { locale: th })}
-          {days > 1 ? ` · จองต่อเนื่อง ${days} วัน รถต้องว่างทุกวัน` : ""} ·
-          สูงสุด {MAX_BOOKING_DAYS} วัน
-        </p>
-      </div>
 
       {vehicles.length === 0 ? (
         <div className="space-y-4">
