@@ -4,8 +4,7 @@ import { useState } from "react";
 import type { Booking } from "@/types";
 import StatusBadge from "./StatusBadge";
 import { Check, X, Trash2 } from "lucide-react";
-import { format } from "date-fns";
-import { th } from "date-fns/locale";
+import { formatBookingRange } from "@/lib/booking-dates";
 
 interface BookingTableProps {
   bookings: Booking[];
@@ -75,7 +74,7 @@ export default function BookingTable({
           {bookings.map((b) => (
             <tr key={b.id} className="hover:bg-slate-50">
               <td className="whitespace-nowrap px-4 py-3">
-                {format(new Date(b.date), "d MMM yyyy", { locale: th })}
+                {formatBookingRange(b)}
               </td>
               <td className="px-4 py-3">
                 <div className="font-medium">

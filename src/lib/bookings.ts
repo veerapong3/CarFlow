@@ -2,13 +2,23 @@ import type { Booking, BookingFormData, BookingStatus } from "@/types";
 import { generateId, getSheetsClient, getSpreadsheetId, isGoogleConfigured } from "./google-auth";
 import { getAllVehicles } from "./vehicles";
 import { isVehicleBookable } from "./vehicle-status";
+import {
+  MAX_BOOKING_DAYS,
+  bookingCoversDate,
+  bookingEndDate,
+  normalizeBookingRange,
+  rangesOverlap,
+} from "./booking-dates";
 
 const SHEET = "Bookings";
+const RANGE = `${SHEET}!A2:Q1000`;
 
 function rowToBooking(row: string[]): Booking {
+  const date = row[1] || "";
   return {
     id: row[0] || "",
-    date: row[1] || "",
+    date,
+    endDate: row[16] || date,
     firstName: row[2] || "",
     lastName: row[3] || "",
     phone: row[4] || "",
@@ -44,6 +54,7 @@ function bookingToRow(b: Booking): string[] {
     b.notes || "",
     b.createdAt,
     b.updatedAt,
+    bookingEndDate(b),
   ];
 }
 
@@ -59,7 +70,7 @@ export async function getAllBookings(): Promise<Booking[]> {
   const sheets = getSheetsClient();
   const res = await sheets.spreadsheets.values.get({
     spreadsheetId: getSpreadsheetId(),
-    range: `${SHEET}!A2:P1000`,
+    range: RANGE,
   });
 
   const rows = res.data.values || [];
@@ -72,16 +83,18 @@ export async function getAllBookings(): Promise<Booking[]> {
 export async function getBookingsByDate(date: string): Promise<Booking[]> {
   const all = await getAllBookings();
   return all.filter(
-    (b) => b.date === date && b.status !== "cancelled"
+    (b) => bookingCoversDate(b, date) && b.status !== "cancelled"
   );
 }
 
 export async function getBookingsByMonth(year: number, month: number): Promise<Booking[]> {
   const all = await getAllBookings();
-  return all.filter((b) => {
-    const d = new Date(b.date);
-    return d.getFullYear() === year && d.getMonth() + 1 === month;
-  });
+  const monthStart = `${year}-${String(month).padStart(2, "0")}-01`;
+  const lastDay = new Date(year, month, 0).getDate();
+  const monthEnd = `${year}-${String(month).padStart(2, "0")}-${String(lastDay).padStart(2, "0")}`;
+  return all.filter((b) =>
+    rangesOverlap(b.date, bookingEndDate(b), monthStart, monthEnd)
+  );
 }
 
 const SUCCESS_STATUSES: BookingStatus[] = ["approved", "completed"];
@@ -105,22 +118,35 @@ export async function getRecentSuccessfulBookings(
 export async function isVehicleAvailable(
   vehicleId: string,
   date: string,
-  excludeBookingId?: string
+  excludeBookingId?: string,
+  endDate?: string
 ): Promise<boolean> {
-  const bookings = await getBookingsByDate(date);
+  const { date: start, endDate: end } = normalizeBookingRange(date, endDate);
+  const bookings = await getAllBookings();
   return !bookings.some(
     (b) =>
       b.vehicleId === vehicleId &&
       b.status !== "cancelled" &&
-      b.id !== excludeBookingId
+      b.id !== excludeBookingId &&
+      rangesOverlap(b.date, bookingEndDate(b), start, end)
   );
 }
 
-export async function getAvailableVehicles(date: string): Promise<string[]> {
+export async function getAvailableVehicles(
+  date: string,
+  endDate?: string
+): Promise<string[]> {
+  const { date: start, endDate: end } = normalizeBookingRange(date, endDate);
   const vehicles = await getAllVehicles(true);
-  const bookings = await getBookingsByDate(date);
+  const bookings = await getAllBookings();
   const bookedIds = new Set(
-    bookings.filter((b) => b.status !== "cancelled").map((b) => b.vehicleId)
+    bookings
+      .filter(
+        (b) =>
+          b.status !== "cancelled" &&
+          rangesOverlap(b.date, bookingEndDate(b), start, end)
+      )
+      .map((b) => b.vehicleId)
   );
   return vehicles.filter((v) => !bookedIds.has(v.id)).map((v) => v.id);
 }
@@ -131,9 +157,29 @@ export async function getBookingById(id: string): Promise<Booking | null> {
 }
 
 export async function createBooking(data: BookingFormData): Promise<Booking> {
-  const available = await isVehicleAvailable(data.vehicleId, data.date);
+  const range = normalizeBookingRange(data.date, data.endDate);
+  if (!data.date) {
+    throw new Error("กรุณาเลือกวันที่เริ่มต้น");
+  }
+  if (data.endDate && data.endDate < data.date) {
+    throw new Error("วันสิ้นสุดต้องไม่ก่อนวันเริ่มต้น");
+  }
+  if (range.days > MAX_BOOKING_DAYS) {
+    throw new Error(`จองต่อเนื่องได้สูงสุด ${MAX_BOOKING_DAYS} วัน`);
+  }
+
+  const available = await isVehicleAvailable(
+    data.vehicleId,
+    range.date,
+    undefined,
+    range.endDate
+  );
   if (!available) {
-    throw new Error("รถคันนี้ถูกจองในวันที่เลือกแล้ว กรุณาเลือกรถคันอื่น");
+    throw new Error(
+      range.days > 1
+        ? "รถคันนี้ถูกจองในบางวันของช่วงที่เลือก กรุณาเลือกรถหรือช่วงวันอื่น"
+        : "รถคันนี้ถูกจองในวันที่เลือกแล้ว กรุณาเลือกรถคันอื่น"
+    );
   }
 
   const vehicles = await getAllVehicles();
@@ -150,6 +196,8 @@ export async function createBooking(data: BookingFormData): Promise<Booking> {
   const booking: Booking = {
     id: generateId(),
     ...data,
+    date: range.date,
+    endDate: range.endDate,
     vehicleName: `${vehicle.brand} ${vehicle.model} (${vehicle.licensePlate})`,
     status: "pending",
     createdAt: now,
@@ -164,7 +212,7 @@ export async function createBooking(data: BookingFormData): Promise<Booking> {
   const sheets = getSheetsClient();
   await sheets.spreadsheets.values.append({
     spreadsheetId: getSpreadsheetId(),
-    range: `${SHEET}!A:P`,
+    range: `${SHEET}!A:Q`,
     valueInputOption: "RAW",
     requestBody: { values: [bookingToRow(booking)] },
   });
@@ -184,33 +232,60 @@ export async function updateBooking(
   id: string,
   data: Partial<Booking> & { distance?: number; notes?: string }
 ): Promise<Booking | null> {
-  if (!isGoogleConfigured()) {
-    const idx = DEMO_BOOKINGS.findIndex((b) => b.id === id);
-    if (idx === -1) return null;
+  const applyUpdate = async (existing: Booking): Promise<Booking> => {
+    const nextDate = data.date || existing.date;
+    const nextEnd = data.endDate || existing.endDate || nextDate;
+    const nextVehicle = data.vehicleId || existing.vehicleId;
+    const range = normalizeBookingRange(nextDate, nextEnd);
 
-    if (data.vehicleId && data.date) {
+    if (
+      data.vehicleId ||
+      data.date ||
+      data.endDate
+    ) {
       const available = await isVehicleAvailable(
-        data.vehicleId,
-        data.date,
-        id
+        nextVehicle,
+        range.date,
+        id,
+        range.endDate
       );
       if (!available) {
-        throw new Error("รถคันนี้ถูกจองในวันที่เลือกแล้ว");
+        throw new Error("รถคันนี้ถูกจองในบางวันของช่วงที่เลือก");
       }
     }
 
-    DEMO_BOOKINGS[idx] = {
-      ...DEMO_BOOKINGS[idx],
+    const updated: Booking = {
+      ...existing,
       ...data,
+      id,
+      date: range.date,
+      endDate: range.endDate,
       updatedAt: new Date().toISOString(),
     };
-    return DEMO_BOOKINGS[idx];
+
+    if (data.vehicleId && data.vehicleId !== existing.vehicleId) {
+      const vehicles = await getAllVehicles();
+      const vehicle = vehicles.find((v) => v.id === data.vehicleId);
+      if (vehicle) {
+        updated.vehicleName = `${vehicle.brand} ${vehicle.model} (${vehicle.licensePlate})`;
+      }
+    }
+
+    return updated;
+  };
+
+  if (!isGoogleConfigured()) {
+    const idx = DEMO_BOOKINGS.findIndex((b) => b.id === id);
+    if (idx === -1) return null;
+    const updated = await applyUpdate(DEMO_BOOKINGS[idx]);
+    DEMO_BOOKINGS[idx] = updated;
+    return updated;
   }
 
   const sheets = getSheetsClient();
   const res = await sheets.spreadsheets.values.get({
     spreadsheetId: getSpreadsheetId(),
-    range: `${SHEET}!A2:P1000`,
+    range: RANGE,
   });
 
   const rows = res.data.values || [];
@@ -218,33 +293,11 @@ export async function updateBooking(
   if (rowIndex === -1) return null;
 
   const existing = rowToBooking(rows[rowIndex]);
-
-  if (data.vehicleId && (data.date || existing.date)) {
-    const date = data.date || existing.date;
-    const available = await isVehicleAvailable(data.vehicleId, date, id);
-    if (!available) {
-      throw new Error("รถคันนี้ถูกจองในวันที่เลือกแล้ว");
-    }
-  }
-
-  const updated: Booking = {
-    ...existing,
-    ...data,
-    id,
-    updatedAt: new Date().toISOString(),
-  };
-
-  if (data.vehicleId && data.vehicleId !== existing.vehicleId) {
-    const vehicles = await getAllVehicles();
-    const vehicle = vehicles.find((v) => v.id === data.vehicleId);
-    if (vehicle) {
-      updated.vehicleName = `${vehicle.brand} ${vehicle.model} (${vehicle.licensePlate})`;
-    }
-  }
+  const updated = await applyUpdate(existing);
 
   await sheets.spreadsheets.values.update({
     spreadsheetId: getSpreadsheetId(),
-    range: `${SHEET}!A${rowIndex + 2}:P${rowIndex + 2}`,
+    range: `${SHEET}!A${rowIndex + 2}:Q${rowIndex + 2}`,
     valueInputOption: "RAW",
     requestBody: { values: [bookingToRow(updated)] },
   });

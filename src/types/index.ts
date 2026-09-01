@@ -19,6 +19,7 @@ export interface Vehicle {
 export interface Booking {
   id: string;
   date: string;
+  endDate: string;
   firstName: string;
   lastName: string;
   phone: string;
@@ -54,6 +55,7 @@ export interface DashboardStats {
 
 export interface BookingFormData {
   date: string;
+  endDate?: string;
   firstName: string;
   lastName: string;
   phone: string;

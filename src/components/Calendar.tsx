@@ -16,6 +16,7 @@ import { th } from "date-fns/locale";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import type { Booking } from "@/types";
 import clsx from "clsx";
+import { bookingEndDate, eachDateInRange } from "@/lib/booking-dates";
 
 interface CalendarProps {
   currentDate: Date;
@@ -45,8 +46,11 @@ export default function Calendar({
   const startPadding = getDay(monthStart);
 
   const bookingsByDate = bookings.reduce<Record<string, Booking[]>>((acc, b) => {
-    if (!acc[b.date]) acc[b.date] = [];
-    acc[b.date].push(b);
+    if (b.status === "cancelled") return acc;
+    for (const day of eachDateInRange(b.date, bookingEndDate(b))) {
+      if (!acc[day]) acc[day] = [];
+      acc[day].push(b);
+    }
     return acc;
   }, {});
 

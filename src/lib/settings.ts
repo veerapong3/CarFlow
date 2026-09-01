@@ -3,6 +3,11 @@ import { getAllBookings } from "./bookings";
 import { getSheetsClient, getSpreadsheetId, isGoogleConfigured } from "./google-auth";
 import { getAllVehicles } from "./vehicles";
 import { isVehicleBookable } from "./vehicle-status";
+import {
+  bookingEndDate,
+  eachDateInRange,
+  rangesOverlap,
+} from "./booking-dates";
 
 const SHEET = "Settings";
 
@@ -79,18 +84,22 @@ export async function getDashboardStats(): Promise<DashboardStats> {
     getAllVehicles(),
   ]);
 
-  const monthBookings = bookings.filter((b) => {
-    const d = new Date(b.date);
-    return (
-      d.getFullYear() === year &&
-      d.getMonth() + 1 === month &&
-      b.status !== "cancelled"
-    );
-  });
+  const monthStart = `${year}-${String(month).padStart(2, "0")}-01`;
+  const lastDay = new Date(year, month, 0).getDate();
+  const monthEnd = `${year}-${String(month).padStart(2, "0")}-${String(lastDay).padStart(2, "0")}`;
 
-  const travelDays = new Set(
-    monthBookings.map((b) => b.date)
-  ).size;
+  const monthBookings = bookings.filter(
+    (b) =>
+      b.status !== "cancelled" &&
+      rangesOverlap(b.date, bookingEndDate(b), monthStart, monthEnd)
+  );
+
+  const travelDays = new Set<string>();
+  for (const b of monthBookings) {
+    for (const day of eachDateInRange(b.date, bookingEndDate(b))) {
+      if (day >= monthStart && day <= monthEnd) travelDays.add(day);
+    }
+  }
 
   const totalDistance = monthBookings.reduce(
     (sum, b) => sum + (b.distance || 0),
@@ -102,7 +111,7 @@ export async function getDashboardStats(): Promise<DashboardStats> {
 
   return {
     totalDistanceThisMonth: totalDistance,
-    travelDaysThisMonth: travelDays,
+    travelDaysThisMonth: travelDays.size,
     totalBookingsThisMonth: monthBookings.length,
     pendingBookings: pending,
     approvedBookings: approved,

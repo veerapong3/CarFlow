@@ -85,6 +85,15 @@ const testDate = new Date();
 testDate.setDate(testDate.getDate() + 300);
 const dateStr = testDate.toISOString().slice(0, 10);
 
+function addDaysYmd(ymd, n) {
+  const [y, m, d] = ymd.split("-").map(Number);
+  const dt = new Date(y, m - 1, d + n);
+  const yy = dt.getFullYear();
+  const mm = String(dt.getMonth() + 1).padStart(2, "0");
+  const dd = String(dt.getDate()).padStart(2, "0");
+  return `${yy}-${mm}-${dd}`;
+}
+
 console.log(`ทดสอบที่ ${BASE}`);
 console.log(`วันที่ทดสอบ: ${dateStr}\n`);
 
@@ -207,6 +216,10 @@ try {
   check("จองสำเร็จ", bookingRes.ok && !!booking.id, booking.error);
   if (booking.id) cleanup.bookingIds.push(booking.id);
   check("สถานะเริ่มต้นเป็น รออนุมัติ", booking.status === "pending");
+  check(
+    "จองวันเดียว endDate เท่ากับวันเริ่มต้น",
+    booking.endDate === dateStr || !booking.endDate
+  );
 
   // ---- 6. กันจองซ้ำ ----
   console.log("\n6) กันจองซ้ำวันเดียวกัน");
@@ -235,6 +248,80 @@ try {
   check(
     "รถหายจากรายการว่างแล้ว",
     Array.isArray(availAfter) && !availAfter.includes(vehicle.id)
+  );
+
+  // ---- 6b. จองหลายวันต่อเนื่อง ----
+  console.log("\n6b) จองหลายวันต่อเนื่อง");
+  const rangeStart = addDaysYmd(dateStr, 10);
+  const rangeMid = addDaysYmd(dateStr, 11);
+  const rangeEnd = addDaysYmd(dateStr, 12);
+  const rangeAfter = addDaysYmd(dateStr, 13);
+
+  const multiRes = await fetch(`${BASE}/api/bookings`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      date: rangeStart,
+      endDate: rangeEnd,
+      firstName: "ต่อเนื่อง",
+      lastName: "สามวัน",
+      phone: "0811111111",
+      activity: "E2E-TEST จอง 3 วัน",
+      destination: "กรุงเทพฯ",
+      province: "กรุงเทพมหานคร",
+      passengers: 8,
+      vehicleId: vehicle.id,
+    }),
+  });
+  const multi = await json(multiRes);
+  check("จอง 3 วันสำเร็จ", multiRes.ok && !!multi.id, multi.error);
+  if (multi.id) cleanup.bookingIds.push(multi.id);
+  check("endDate ตรงวันสุดท้าย", multi.endDate === rangeEnd, multi.endDate);
+
+  const midAvail = await json(
+    await fetch(`${BASE}/api/bookings?date=${rangeMid}&available=true`)
+  );
+  check(
+    "วันที่กลางช่วงไม่ว่าง",
+    Array.isArray(midAvail) && !midAvail.includes(vehicle.id)
+  );
+
+  const afterAvail = await json(
+    await fetch(`${BASE}/api/bookings?date=${rangeAfter}&available=true`)
+  );
+  check(
+    "วันถัดจากช่วงยังว่าง",
+    Array.isArray(afterAvail) && afterAvail.includes(vehicle.id)
+  );
+
+  const overlapRes = await fetch(`${BASE}/api/bookings`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      date: rangeMid,
+      endDate: rangeAfter,
+      firstName: "ทับ",
+      lastName: "ช่วง",
+      phone: "0822222222",
+      activity: "E2E-TEST ทับช่วง",
+      destination: "ที่เดิม",
+      province: "มุกดาหาร",
+      passengers: 4,
+      vehicleId: vehicle.id,
+    }),
+  });
+  const overlap = await json(overlapRes);
+  if (overlap.id) cleanup.bookingIds.push(overlap.id);
+  check("จองทับช่วงถูกปฏิเสธ", overlapRes.status === 400, `ได้ status ${overlapRes.status}`);
+
+  const rangeAvail = await json(
+    await fetch(
+      `${BASE}/api/bookings?date=${rangeStart}&endDate=${rangeEnd}&available=true`
+    )
+  );
+  check(
+    "รถไม่ว่างตลอดช่วง 3 วัน",
+    Array.isArray(rangeAvail) && !rangeAvail.includes(vehicle.id)
   );
 
   // ---- 7. เกินจำนวนที่นั่ง ----

@@ -1,10 +1,9 @@
 "use client";
 
-import { format } from "date-fns";
-import { th } from "date-fns/locale";
-import { CalendarCheck } from "lucide-react";
 import type { Booking } from "@/types";
 import StatusBadge from "./StatusBadge";
+import { CalendarCheck } from "lucide-react";
+import { formatBookingRange } from "@/lib/booking-dates";
 
 interface RecentBookingsProps {
   bookings: Booking[];
@@ -36,9 +35,7 @@ export default function RecentBookings({ bookings }: RecentBookingsProps) {
               <div className="flex items-start justify-between gap-2">
                 <div className="min-w-0">
                   <p className="text-xs font-medium text-slate-500">
-                    {format(new Date(`${b.date}T00:00:00`), "d MMMM yyyy", {
-                      locale: th,
-                    })}
+                    {formatBookingRange(b)}
                   </p>
                   <p className="mt-0.5 truncate font-medium text-slate-900">
                     {b.activity}

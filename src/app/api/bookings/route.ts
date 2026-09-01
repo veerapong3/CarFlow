@@ -27,7 +27,8 @@ export async function GET(request: NextRequest) {
     }
 
     if (date && available === "true") {
-      const vehicleIds = await getAvailableVehicles(date);
+      const endDate = searchParams.get("endDate") || undefined;
+      const vehicleIds = await getAvailableVehicles(date, endDate);
       return NextResponse.json(vehicleIds);
     }
 

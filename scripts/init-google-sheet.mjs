@@ -60,6 +60,7 @@ const SHEETS = {
     "notes",
     "createdAt",
     "updatedAt",
+    "endDate",
   ],
   Settings: ["key", "value"],
 };

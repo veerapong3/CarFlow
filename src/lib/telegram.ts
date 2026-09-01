@@ -1,5 +1,6 @@
 import type { Booking } from "@/types";
 import { getSettings } from "./settings";
+import { formatBookingRange } from "./booking-dates";
 
 const TELEGRAM_API = "https://api.telegram.org/bot";
 
@@ -44,7 +45,7 @@ export async function notifyNewBooking(booking: Booking): Promise<void> {
   const text = [
     "🚗 <b>คำขอจองรถใหม่</b>",
     "",
-    `📅 วันที่: ${formatThaiDate(booking.date)}`,
+    `📅 วันที่: ${formatBookingRange(booking)}`,
     `👤 ผู้จอง: ${booking.firstName} ${booking.lastName}`,
     `📞 โทร: ${booking.phone}`,
     `🎯 กิจกรรม: ${booking.activity}`,
@@ -83,7 +84,7 @@ export async function notifyBookingStatusChange(
   const text = [
     `${emoji} <b>การจอง${label}</b>`,
     "",
-    `📅 ${formatThaiDate(booking.date)}`,
+    `📅 ${formatBookingRange(booking)}`,
     `👤 ${booking.firstName} ${booking.lastName}`,
     `🎯 ${booking.activity}`,
     `🚌 ${booking.vehicleName}`,
@@ -121,14 +122,4 @@ export async function setTelegramWebhook(webhookUrl: string): Promise<boolean> {
     body: JSON.stringify({ url: webhookUrl }),
   });
   return res.ok;
-}
-
-function formatThaiDate(dateStr: string): string {
-  const d = new Date(dateStr);
-  return d.toLocaleDateString("th-TH", {
-    weekday: "long",
-    year: "numeric",
-    month: "long",
-    day: "numeric",
-  });
 }

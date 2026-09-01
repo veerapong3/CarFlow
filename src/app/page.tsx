@@ -9,6 +9,7 @@ import StatusBadge from "@/components/StatusBadge";
 import RecentBookings from "@/components/RecentBookings";
 import type { Booking } from "@/types";
 import { CheckCircle } from "lucide-react";
+import { bookingCoversDate, formatBookingRange } from "@/lib/booking-dates";
 
 export default function HomePage() {
   const [currentDate, setCurrentDate] = useState(new Date());
@@ -52,7 +53,7 @@ export default function HomePage() {
   const selectedBookings = selectedDate
     ? bookings.filter(
         (b) =>
-          b.date === format(selectedDate, "yyyy-MM-dd") &&
+          bookingCoversDate(b, format(selectedDate, "yyyy-MM-dd")) &&
           b.status !== "cancelled"
       )
     : [];
@@ -64,7 +65,7 @@ export default function HomePage() {
           ระบบจองรถโรงเรียน
         </h1>
         <p className="mt-1 text-slate-600">
-          เลือกวันที่จากปฏิทินเพื่อจองรถ — โรงเรียนดอนตาลวิทยา สพม.มุกดาหาร
+          เลือกวันที่เริ่มต้นจากปฏิทิน แล้วกำหนดวันสิ้นสุดได้ถ้าจองหลายวันต่อเนื่อง
         </p>
       </div>
 
@@ -117,6 +118,9 @@ export default function HomePage() {
                         <div>
                           <p className="font-medium text-slate-900">
                             {b.activity}
+                          </p>
+                          <p className="text-xs text-slate-500">
+                            {formatBookingRange(b)}
                           </p>
                           <p className="text-sm text-slate-600">
                             {b.firstName} {b.lastName} · {b.passengers} คน

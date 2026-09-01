@@ -13,8 +13,7 @@ import {
   Car,
   LogOut,
 } from "lucide-react";
-import { format } from "date-fns";
-import { th } from "date-fns/locale";
+import { formatBookingRange } from "@/lib/booking-dates";
 import Link from "next/link";
 
 export default function AdminDashboard() {
@@ -132,7 +131,7 @@ export default function AdminDashboard() {
               {stats?.recentBookings?.map((b) => (
                 <tr key={b.id}>
                   <td className="py-3 pr-4">
-                    {format(new Date(b.date), "d MMM yyyy", { locale: th })}
+                    {formatBookingRange(b)}
                   </td>
                   <td className="py-3 pr-4">
                     {b.firstName} {b.lastName}
