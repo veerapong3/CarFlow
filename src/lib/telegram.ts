@@ -1,6 +1,8 @@
 import type { Booking } from "@/types";
 import { getSettings } from "./settings";
 import { formatBookingRange } from "./booking-dates";
+import { formatBookerName } from "./person-name";
+import { destinationLine, escapeHtml } from "./telegram-format";
 
 const TELEGRAM_API = "https://api.telegram.org/bot";
 
@@ -45,13 +47,13 @@ export async function notifyNewBooking(booking: Booking): Promise<void> {
   const text = [
     "🚗 <b>คำขอจองรถใหม่</b>",
     "",
-    `📅 วันที่: ${formatBookingRange(booking)}`,
-    `👤 ผู้จอง: ${booking.firstName} ${booking.lastName}`,
-    `📞 โทร: ${booking.phone}`,
-    `🎯 กิจกรรม: ${booking.activity}`,
-    `📍 ปลายทาง: ${booking.destination}, ${booking.province}`,
+    `📅 วันที่: ${escapeHtml(formatBookingRange(booking))}`,
+    `👤 ผู้จอง: ${escapeHtml(formatBookerName(booking))}`,
+    `📞 โทร: ${escapeHtml(booking.phone)}`,
+    `🎯 กิจกรรม: ${escapeHtml(booking.activity)}`,
+    `📍 ปลายทาง: ${escapeHtml(destinationLine(booking))}`,
     `👥 ผู้โดยสาร: ${booking.passengers} คน`,
-    `🚌 รถ: ${booking.vehicleName}`,
+    `🚌 รถ: ${escapeHtml(booking.vehicleName || "")}`,
     "",
     `รหัสการจอง: <code>${booking.id}</code>`,
   ].join("\n");
@@ -84,10 +86,11 @@ export async function notifyBookingStatusChange(
   const text = [
     `${emoji} <b>การจอง${label}</b>`,
     "",
-    `📅 ${formatBookingRange(booking)}`,
-    `👤 ${booking.firstName} ${booking.lastName}`,
-    `🎯 ${booking.activity}`,
-    `🚌 ${booking.vehicleName}`,
+    `📅 ${escapeHtml(formatBookingRange(booking))}`,
+    `👤 ${escapeHtml(formatBookerName(booking))}`,
+    `🎯 ${escapeHtml(booking.activity)}`,
+    `📍 ปลายทาง: ${escapeHtml(destinationLine(booking))}`,
+    `🚌 ${escapeHtml(booking.vehicleName || "")}`,
   ].join("\n");
 
   await sendTelegramMessage(text);
@@ -119,7 +122,40 @@ export async function setTelegramWebhook(webhookUrl: string): Promise<boolean> {
   const res = await fetch(`${TELEGRAM_API}${token}/setWebhook`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ url: webhookUrl }),
+    body: JSON.stringify({
+      url: webhookUrl,
+      allowed_updates: ["message", "callback_query"],
+    }),
+  });
+  if (!res.ok) return false;
+  await setTelegramCommands();
+  return true;
+}
+
+export async function setTelegramCommands(): Promise<boolean> {
+  const settings = await getSettings();
+  const token = settings.telegramBotToken || process.env.TELEGRAM_BOT_TOKEN;
+  if (!token) return false;
+
+  const res = await fetch(`${TELEGRAM_API}${token}/setMyCommands`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      commands: [
+        {
+          command: "free",
+          description: "ดูวันที่รถว่าง 14 วันข้างหน้า",
+        },
+        {
+          command: "month",
+          description: "ดูรถว่างทั้งเดือนนี้",
+        },
+        {
+          command: "help",
+          description: "วิธีใช้คำสั่งบอท",
+        },
+      ],
+    }),
   });
   return res.ok;
 }

@@ -3,7 +3,12 @@ import { updateBookingStatus, getBookingById } from "@/lib/bookings";
 import {
   answerCallbackQuery,
   notifyBookingStatusChange,
+  sendTelegramMessage,
 } from "@/lib/telegram";
+import {
+  availabilityReply,
+  handleTelegramCommand,
+} from "@/lib/telegram-commands";
 
 interface TelegramUpdate {
   callback_query?: {
@@ -23,21 +28,36 @@ export async function POST(request: NextRequest) {
 
     if (update.callback_query?.data) {
       const { id: queryId, data } = update.callback_query;
-      const [action, bookingId] = data.split(":");
+      const chatId = update.callback_query.message?.chat.id;
+      const sep = data.indexOf(":");
+      const action = sep === -1 ? data : data.slice(0, sep);
+      const payload = sep === -1 ? "" : data.slice(sep + 1);
 
-      if (!bookingId || !["approve", "cancel"].includes(action)) {
+      if (action === "avail") {
+        const reply = await availabilityReply(payload || "range");
+        await answerCallbackQuery(queryId);
+        if (chatId) {
+          await sendTelegramMessage(reply.text, {
+            chatId: String(chatId),
+            replyMarkup: reply.replyMarkup,
+          });
+        }
+        return NextResponse.json({ ok: true });
+      }
+
+      if (!payload || !["approve", "cancel"].includes(action)) {
         await answerCallbackQuery(queryId, "คำสั่งไม่ถูกต้อง");
         return NextResponse.json({ ok: true });
       }
 
-      const booking = await getBookingById(bookingId);
+      const booking = await getBookingById(payload);
       if (!booking) {
         await answerCallbackQuery(queryId, "ไม่พบการจอง");
         return NextResponse.json({ ok: true });
       }
 
       const status = action === "approve" ? "approved" : "cancelled";
-      const updated = await updateBookingStatus(bookingId, status);
+      const updated = await updateBookingStatus(payload, status);
 
       if (updated) {
         await answerCallbackQuery(
@@ -47,6 +67,17 @@ export async function POST(request: NextRequest) {
         await notifyBookingStatusChange(updated, status);
       }
 
+      return NextResponse.json({ ok: true });
+    }
+
+    if (update.message?.text) {
+      const reply = await handleTelegramCommand(update.message.text);
+      if (reply) {
+        await sendTelegramMessage(reply.text, {
+          chatId: String(update.message.chat.id),
+          replyMarkup: reply.replyMarkup,
+        });
+      }
       return NextResponse.json({ ok: true });
     }
 

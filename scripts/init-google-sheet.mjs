@@ -61,6 +61,7 @@ const SHEETS = {
     "createdAt",
     "updatedAt",
     "endDate",
+    "title",
   ],
   Settings: ["key", "value"],
 };

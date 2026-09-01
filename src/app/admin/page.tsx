@@ -14,6 +14,7 @@ import {
   LogOut,
 } from "lucide-react";
 import { formatBookingRange } from "@/lib/booking-dates";
+import { formatBookerName } from "@/lib/person-name";
 import Link from "next/link";
 import ExportButtons from "@/components/ExportButtons";
 
@@ -140,7 +141,7 @@ export default function AdminDashboard() {
                     {formatBookingRange(b)}
                   </td>
                   <td className="py-3 pr-4">
-                    {b.firstName} {b.lastName}
+                    {formatBookerName(b)}
                   </td>
                   <td className="py-3 pr-4">{b.activity}</td>
                   <td className="py-3">

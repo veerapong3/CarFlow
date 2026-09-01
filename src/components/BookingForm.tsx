@@ -6,6 +6,7 @@ import { THAI_PROVINCES } from "@/lib/provinces";
 import type { Vehicle } from "@/types";
 import ImageLightbox from "./ImageLightbox";
 import { bookingDayCount, formatBookingRange } from "@/lib/booking-dates";
+import { NAME_TITLES } from "@/lib/person-name";
 
 interface BookingFormProps {
   startDate: Date;
@@ -27,6 +28,7 @@ export default function BookingForm({
   const endStr = format(endDate, "yyyy-MM-dd");
 
   const [form, setForm] = useState({
+    title: "",
     firstName: "",
     lastName: "",
     phone: "",
@@ -78,6 +80,14 @@ export default function BookingForm({
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError("");
+    if (!form.title) {
+      setError("กรุณาเลือกคำนำหน้า");
+      return;
+    }
+    if (!/^\d{10}$/.test(form.phone)) {
+      setError("เบอร์โทรศัพท์ต้องเป็นตัวเลข 10 หลัก");
+      return;
+    }
     setLoading(true);
 
     try {
@@ -125,7 +135,23 @@ export default function BookingForm({
         </div>
       ) : (
         <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="grid gap-4 sm:grid-cols-2">
+          <div className="grid gap-4 sm:grid-cols-[7.5rem_1fr_1fr]">
+            <div>
+              <label className="label">คำนำหน้า *</label>
+              <select
+                className="input-field"
+                required
+                value={form.title}
+                onChange={(e) => setForm({ ...form, title: e.target.value })}
+              >
+                <option value="">เลือก</option>
+                {NAME_TITLES.map((title) => (
+                  <option key={title} value={title}>
+                    {title}
+                  </option>
+                ))}
+              </select>
+            </div>
             <div>
               <label className="label">ชื่อ *</label>
               <input
@@ -155,12 +181,24 @@ export default function BookingForm({
             <input
               className="input-field"
               type="tel"
+              inputMode="numeric"
+              autoComplete="tel"
               required
-              pattern="[0-9]{9,10}"
+              minLength={10}
+              maxLength={10}
+              pattern="[0-9]{10}"
               placeholder="0812345678"
               value={form.phone}
-              onChange={(e) => setForm({ ...form, phone: e.target.value })}
+              onChange={(e) =>
+                setForm({
+                  ...form,
+                  phone: e.target.value.replace(/\D/g, "").slice(0, 10),
+                })
+              }
             />
+            <p className="mt-1 text-xs text-slate-500">
+              กรอกตัวเลข 10 หลักเท่านั้น ({form.phone.length}/10)
+            </p>
           </div>
 
           <div>

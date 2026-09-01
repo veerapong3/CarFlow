@@ -9,9 +9,10 @@ import {
   normalizeBookingRange,
   rangesOverlap,
 } from "./booking-dates";
+import { isNameTitle, isTenDigitPhone } from "./person-name";
 
 const SHEET = "Bookings";
-const RANGE = `${SHEET}!A2:Q1000`;
+const RANGE = `${SHEET}!A2:R1000`;
 
 function rowToBooking(row: string[]): Booking {
   const date = row[1] || "";
@@ -19,6 +20,7 @@ function rowToBooking(row: string[]): Booking {
     id: row[0] || "",
     date,
     endDate: row[16] || date,
+    title: row[17] || "",
     firstName: row[2] || "",
     lastName: row[3] || "",
     phone: row[4] || "",
@@ -55,6 +57,7 @@ function bookingToRow(b: Booking): string[] {
     b.createdAt,
     b.updatedAt,
     bookingEndDate(b),
+    b.title || "",
   ];
 }
 
@@ -167,6 +170,12 @@ export async function createBooking(data: BookingFormData): Promise<Booking> {
   if (range.days > MAX_BOOKING_DAYS) {
     throw new Error(`จองต่อเนื่องได้สูงสุด ${MAX_BOOKING_DAYS} วัน`);
   }
+  if (!isNameTitle(data.title)) {
+    throw new Error("กรุณาเลือกคำนำหน้า นาย นาง หรือ นางสาว");
+  }
+  if (!isTenDigitPhone(data.phone)) {
+    throw new Error("เบอร์โทรศัพท์ต้องเป็นตัวเลข 10 หลัก");
+  }
 
   const available = await isVehicleAvailable(
     data.vehicleId,
@@ -212,7 +221,7 @@ export async function createBooking(data: BookingFormData): Promise<Booking> {
   const sheets = getSheetsClient();
   await sheets.spreadsheets.values.append({
     spreadsheetId: getSpreadsheetId(),
-    range: `${SHEET}!A:Q`,
+    range: `${SHEET}!A:R`,
     valueInputOption: "RAW",
     requestBody: { values: [bookingToRow(booking)] },
   });
@@ -297,7 +306,7 @@ export async function updateBooking(
 
   await sheets.spreadsheets.values.update({
     spreadsheetId: getSpreadsheetId(),
-    range: `${SHEET}!A${rowIndex + 2}:Q${rowIndex + 2}`,
+    range: `${SHEET}!A${rowIndex + 2}:R${rowIndex + 2}`,
     valueInputOption: "RAW",
     requestBody: { values: [bookingToRow(updated)] },
   });

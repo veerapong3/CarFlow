@@ -21,6 +21,7 @@ import {
   bookingCoversDate,
   formatBookingRange,
 } from "@/lib/booking-dates";
+import { formatBookerName } from "@/lib/person-name";
 
 export default function HomePage() {
   const [currentDate, setCurrentDate] = useState(new Date());
@@ -177,7 +178,7 @@ export default function HomePage() {
                             {formatBookingRange(b)}
                           </p>
                           <p className="text-sm text-slate-600">
-                            {b.firstName} {b.lastName} · {b.passengers} คน
+                            {formatBookerName(b)} · {b.passengers} คน
                           </p>
                           <p className="text-xs text-slate-500">
                             {b.destination}, {b.province}

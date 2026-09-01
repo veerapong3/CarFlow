@@ -5,6 +5,7 @@ import type { Booking } from "@/types";
 import StatusBadge from "./StatusBadge";
 import { Check, X, Trash2 } from "lucide-react";
 import { formatBookingRange } from "@/lib/booking-dates";
+import { formatBookerName } from "@/lib/person-name";
 
 interface BookingTableProps {
   bookings: Booking[];
@@ -78,7 +79,7 @@ export default function BookingTable({
               </td>
               <td className="px-4 py-3">
                 <div className="font-medium">
-                  {b.firstName} {b.lastName}
+                  {formatBookerName(b)}
                 </div>
                 <div className="text-xs text-slate-500">{b.phone}</div>
               </td>

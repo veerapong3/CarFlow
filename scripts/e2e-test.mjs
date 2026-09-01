@@ -202,6 +202,7 @@ try {
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
       date: dateStr,
+      title: "นาย",
       firstName: "ทดสอบ",
       lastName: "ระบบ",
       phone: "0812345678",
@@ -228,6 +229,7 @@ try {
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
       date: dateStr,
+      title: "นาย",
       firstName: "ซ้ำ",
       lastName: "ทดสอบ",
       phone: "0899999999",
@@ -263,6 +265,7 @@ try {
     body: JSON.stringify({
       date: rangeStart,
       endDate: rangeEnd,
+      title: "นาง",
       firstName: "ต่อเนื่อง",
       lastName: "สามวัน",
       phone: "0811111111",
@@ -300,6 +303,7 @@ try {
     body: JSON.stringify({
       date: rangeMid,
       endDate: rangeAfter,
+      title: "นางสาว",
       firstName: "ทับ",
       lastName: "ช่วง",
       phone: "0822222222",
@@ -331,6 +335,7 @@ try {
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
       date: "2099-12-31",
+      title: "นาย",
       firstName: "เกิน",
       lastName: "ที่นั่ง",
       phone: "0800000000",
@@ -344,6 +349,26 @@ try {
   const over = await json(overRes);
   if (over.id) cleanup.bookingIds.push(over.id);
   check("ผู้โดยสารเกินที่นั่งถูกปฏิเสธ", overRes.status === 400);
+
+  const phoneRes = await fetch(`${BASE}/api/bookings`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      date: "2099-12-30",
+      title: "นาย",
+      firstName: "เบอร์",
+      lastName: "สั้น",
+      phone: "081234567",
+      activity: "E2E-TEST เบอร์ไม่ครบ",
+      destination: "ที่ไหนก็ได้",
+      province: "มุกดาหาร",
+      passengers: 2,
+      vehicleId: vehicle.id,
+    }),
+  });
+  const phone = await json(phoneRes);
+  if (phone.id) cleanup.bookingIds.push(phone.id);
+  check("เบอร์โทรไม่ครบ 10 หลักถูกปฏิเสธ", phoneRes.status === 400);
 
   // ---- 8. อนุมัติการจอง ----
   console.log("\n8) อนุมัติการจอง (ฝั่ง admin)");

@@ -37,11 +37,44 @@ interface CalendarProps {
 }
 
 const STATUS_COLORS: Record<string, string> = {
-  pending: "bg-amber-400",
-  approved: "bg-emerald-500",
+  pending: "bg-amber-500",
+  approved: "bg-emerald-600",
   cancelled: "bg-slate-300",
-  completed: "bg-blue-500",
+  completed: "bg-sky-500",
 };
+
+const STATUS_DAY: Record<
+  string,
+  { wash: string; circle: string; pastWash: string; past: string }
+> = {
+  pending: {
+    wash: "bg-amber-100",
+    circle:
+      "bg-amber-200 font-bold text-amber-950 ring-2 ring-amber-500",
+    pastWash: "bg-amber-50",
+    past: "bg-amber-50 font-semibold text-amber-800 ring-1 ring-amber-300",
+  },
+  approved: {
+    wash: "bg-emerald-100",
+    circle:
+      "bg-emerald-200 font-bold text-emerald-950 ring-2 ring-emerald-600",
+    pastWash: "bg-emerald-50",
+    past: "bg-emerald-50 font-semibold text-emerald-800 ring-1 ring-emerald-300",
+  },
+  completed: {
+    wash: "bg-sky-100",
+    circle: "bg-sky-200 font-bold text-sky-950 ring-2 ring-sky-500",
+    pastWash: "bg-sky-50",
+    past: "bg-sky-50 font-semibold text-sky-800 ring-1 ring-sky-300",
+  },
+};
+
+function dominantBookingStatus(bookings: Booking[]): string | null {
+  if (bookings.some((b) => b.status === "pending")) return "pending";
+  if (bookings.some((b) => b.status === "approved")) return "approved";
+  if (bookings.some((b) => b.status === "completed")) return "completed";
+  return bookings[0]?.status || null;
+}
 
 export default function Calendar({
   currentDate,
@@ -160,18 +193,21 @@ export default function Calendar({
         ))}
       </div>
 
-      <div className="mt-4 flex flex-wrap gap-4 border-t border-slate-100 pt-4 text-xs text-slate-500">
+      <div className="mt-4 flex flex-wrap gap-4 border-t border-slate-100 pt-4 text-xs text-slate-600">
         <span className="flex items-center gap-1.5">
-          <span className="h-2 w-2 rounded-full bg-amber-400" /> รออนุมัติ
+          <span className="h-3.5 w-3.5 rounded-md bg-amber-200 ring-2 ring-amber-500" />{" "}
+          มีการจอง · รออนุมัติ
         </span>
         <span className="flex items-center gap-1.5">
-          <span className="h-2 w-2 rounded-full bg-emerald-500" /> อนุมัติแล้ว
+          <span className="h-3.5 w-3.5 rounded-md bg-emerald-200 ring-2 ring-emerald-600" />{" "}
+          มีการจอง · อนุมัติแล้ว
         </span>
         <span className="flex items-center gap-1.5">
-          <span className="h-2 w-2 rounded-full bg-blue-500" /> เสร็จสิ้น
+          <span className="h-3.5 w-3.5 rounded-md bg-sky-200 ring-2 ring-sky-500" />{" "}
+          มีการจอง · เสร็จสิ้น
         </span>
         <span className="flex items-center gap-1.5">
-          <span className="h-2 w-2 rounded-full bg-primary-600" /> ช่วงที่เลือก
+          <span className="h-3.5 w-3.5 rounded-full bg-primary-600" /> ช่วงที่เลือก
         </span>
       </div>
     </div>
@@ -285,6 +321,9 @@ function MonthGrid({
           );
           const disabled = isPast || beyondMax;
           const isEndpoint = isStart || isEnd;
+          const tone = dominantBookingStatus(activeBookings);
+          const dayStyle = tone ? STATUS_DAY[tone] : null;
+          const booked = Boolean(dayStyle);
 
           return (
             <button
@@ -295,12 +334,18 @@ function MonthGrid({
               onMouseEnter={() => {
                 if (!disabled) onHoverDate(day);
               }}
-              aria-label={format(day, "d MMMM yyyy", { locale: th })}
+              aria-label={
+                booked
+                  ? `${format(day, "d MMMM yyyy", { locale: th })} มีการจองแล้ว`
+                  : format(day, "d MMMM yyyy", { locale: th })
+              }
               className={clsx(
                 "relative aspect-square text-sm",
-                disabled
+                disabled && !booked
                   ? "cursor-not-allowed text-slate-300"
-                  : "cursor-pointer text-slate-700",
+                  : disabled
+                    ? "cursor-not-allowed"
+                    : "cursor-pointer text-slate-700",
                 !isSameMonth(day, month) && "text-slate-300"
               )}
             >
@@ -314,19 +359,32 @@ function MonthGrid({
                   )}
                 />
               )}
+              {!isEndpoint && dayStyle && (
+                <span
+                  className={clsx(
+                    "absolute inset-1 rounded-xl",
+                    isPast ? dayStyle.pastWash : dayStyle.wash
+                  )}
+                />
+              )}
               <span
                 className={clsx(
                   "relative z-[1] mx-auto flex h-[82%] w-[82%] flex-col items-center justify-center rounded-full",
                   isToday(day) &&
                     !isEndpoint &&
+                    !booked &&
                     "font-bold ring-1 ring-school-green/40",
                   isStart || isConfirmedEnd
                     ? "bg-primary-600 font-semibold text-white"
                     : isHoverEnd
                       ? "bg-primary-500 font-semibold text-white"
-                      : !disabled
-                        ? "hover:bg-primary-50"
-                        : undefined
+                      : dayStyle && !isEndpoint
+                        ? isPast
+                          ? dayStyle.past
+                          : dayStyle.circle
+                        : !disabled
+                          ? "hover:bg-primary-50"
+                          : undefined
                 )}
               >
                 {format(day, "d")}
@@ -340,12 +398,12 @@ function MonthGrid({
                   </span>
                 )}
                 {!isEndpoint && activeBookings.length > 0 && (
-                  <span className="mt-0.5 flex gap-0.5">
+                  <span className="mt-0.5 flex items-center gap-0.5">
                     {activeBookings.slice(0, 3).map((b) => (
                       <span
                         key={b.id}
                         className={clsx(
-                          "h-1 w-1 rounded-full",
+                          "h-1.5 w-1.5 rounded-full",
                           STATUS_COLORS[b.status] || "bg-slate-400"
                         )}
                       />

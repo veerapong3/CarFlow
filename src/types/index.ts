@@ -20,6 +20,7 @@ export interface Booking {
   id: string;
   date: string;
   endDate: string;
+  title?: string;
   firstName: string;
   lastName: string;
   phone: string;
@@ -56,6 +57,7 @@ export interface DashboardStats {
 export interface BookingFormData {
   date: string;
   endDate?: string;
+  title: string;
   firstName: string;
   lastName: string;
   phone: string;

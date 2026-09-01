@@ -2,8 +2,14 @@
 
 import type { Booking } from "@/types";
 import StatusBadge from "./StatusBadge";
-import { CalendarCheck } from "lucide-react";
-import { formatBookingRange } from "@/lib/booking-dates";
+import { CalendarDays } from "lucide-react";
+import {
+  formatBookingRange,
+  parseYmd,
+} from "@/lib/booking-dates";
+import { formatBookerName } from "@/lib/person-name";
+import { format } from "date-fns";
+import { th } from "date-fns/locale";
 
 interface RecentBookingsProps {
   bookings: Booking[];
@@ -14,7 +20,7 @@ export default function RecentBookings({ bookings }: RecentBookingsProps) {
     <div className="card">
       <div className="mb-4 flex items-start gap-3">
         <div className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-emerald-50 text-emerald-700">
-          <CalendarCheck className="h-5 w-5" />
+          <CalendarDays className="h-5 w-5" />
         </div>
         <div>
           <h3 className="text-lg font-semibold text-slate-900">
@@ -30,35 +36,43 @@ export default function RecentBookings({ bookings }: RecentBookingsProps) {
         <p className="text-sm text-slate-500">ยังไม่มีรายการจองที่สำเร็จ</p>
       ) : (
         <ul className="divide-y divide-slate-100">
-          {bookings.map((b) => (
-            <li key={b.id} className="py-3 first:pt-0 last:pb-0">
-              <div className="flex items-start justify-between gap-2">
-                <div className="min-w-0">
-                  <p className="text-xs font-medium text-slate-500">
-                    {formatBookingRange(b)}
-                  </p>
-                  <p className="mt-0.5 truncate font-medium text-slate-900">
-                    {b.activity}
-                  </p>
-                  <p className="truncate text-sm text-slate-600">
-                    {b.destination}, {b.province}
-                    {b.passengers ? ` · ${b.passengers} คน` : ""}
-                  </p>
-                  {(b.firstName || b.vehicleName) && (
-                    <p className="truncate text-xs text-slate-500">
-                      {[
-                        [b.firstName, b.lastName].filter(Boolean).join(" "),
-                        b.vehicleName,
-                      ]
-                        .filter(Boolean)
-                        .join(" · ")}
+          {bookings.map((b) => {
+            const start = parseYmd(b.date);
+            const weekday = Number.isNaN(start.getTime())
+              ? ""
+              : format(start, "EEEE", { locale: th });
+
+            return (
+              <li key={b.id} className="py-3 first:pt-0 last:pb-0">
+                <div className="flex items-start justify-between gap-2">
+                  <div className="min-w-0">
+                    <div className="mb-1.5 inline-flex max-w-full items-center gap-2 rounded-lg bg-emerald-50 px-2.5 py-1.5 text-emerald-900 ring-1 ring-emerald-200">
+                      <CalendarDays className="h-4 w-4 shrink-0 text-emerald-700" />
+                      <span className="text-sm font-bold leading-tight">
+                        {weekday ? `${weekday} · ` : ""}
+                        {formatBookingRange(b)}
+                      </span>
+                    </div>
+                    <p className="truncate font-medium text-slate-900">
+                      {b.activity}
                     </p>
-                  )}
+                    <p className="truncate text-sm text-slate-600">
+                      {b.destination}, {b.province}
+                      {b.passengers ? ` · ${b.passengers} คน` : ""}
+                    </p>
+                    {(b.firstName || b.vehicleName) && (
+                      <p className="truncate text-xs text-slate-500">
+                        {[formatBookerName(b), b.vehicleName]
+                          .filter(Boolean)
+                          .join(" · ")}
+                      </p>
+                    )}
+                  </div>
+                  <StatusBadge status={b.status} />
                 </div>
-                <StatusBadge status={b.status} />
-              </div>
-            </li>
-          ))}
+              </li>
+            );
+          })}
         </ul>
       )}
     </div>
