@@ -120,10 +120,13 @@ export default function AdminSettingsPage() {
               <li>กดปุ่มตั้งค่า Webhook ด้านล่าง</li>
               <li>เมื่อมีการจองใหม่ Bot จะส่งข้อความพร้อมปุ่ม อนุมัติ/ยกเลิก</li>
               <li>
-                เช็กวันว่างในกลุ่มด้วย{" "}
-                <code className="rounded bg-slate-100 px-1">/ว่าง</code>{" "}
-                หรือ{" "}
-                <code className="rounded bg-slate-100 px-1">/ว่าง 15/9</code>
+                พิมพ์{" "}
+                <code className="rounded bg-slate-100 px-1">/เมนู</code>{" "}
+                เพื่อเปิดปุ่มในแชท — เช็กวันว่าง ดูรายการ และยกเลิกการจอง
+              </li>
+              <li>
+                ถ้าปุ่มล่างแชทกลุ่มกดแล้วบอทไม่ตอบ ให้ไปที่ @BotFather →
+                /setprivacy → Disable
               </li>
             </ol>
           </div>

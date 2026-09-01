@@ -7,7 +7,10 @@ import {
 } from "@/lib/telegram";
 import {
   availabilityReply,
+  bookingListReply,
+  confirmCancelReply,
   handleTelegramCommand,
+  helpReply,
 } from "@/lib/telegram-commands";
 
 interface TelegramUpdate {
@@ -22,6 +25,18 @@ interface TelegramUpdate {
   };
 }
 
+async function replyToChat(
+  chatId: number | string | undefined,
+  text: string,
+  replyMarkup?: object
+) {
+  if (!chatId) return;
+  await sendTelegramMessage(text, {
+    chatId: String(chatId),
+    replyMarkup,
+  });
+}
+
 export async function POST(request: NextRequest) {
   try {
     const update: TelegramUpdate = await request.json();
@@ -33,15 +48,33 @@ export async function POST(request: NextRequest) {
       const action = sep === -1 ? data : data.slice(0, sep);
       const payload = sep === -1 ? "" : data.slice(sep + 1);
 
+      if (action === "help" || action === "menu") {
+        const reply = helpReply();
+        await answerCallbackQuery(queryId);
+        await replyToChat(chatId, reply.text, reply.replyMarkup);
+        return NextResponse.json({ ok: true });
+      }
+
       if (action === "avail") {
         const reply = await availabilityReply(payload || "range");
         await answerCallbackQuery(queryId);
-        if (chatId) {
-          await sendTelegramMessage(reply.text, {
-            chatId: String(chatId),
-            replyMarkup: reply.replyMarkup,
-          });
-        }
+        await replyToChat(chatId, reply.text, reply.replyMarkup);
+        return NextResponse.json({ ok: true });
+      }
+
+      if (action === "list") {
+        const reply = await bookingListReply(
+          payload === "cancel" ? "cancel" : "manage"
+        );
+        await answerCallbackQuery(queryId);
+        await replyToChat(chatId, reply.text, reply.replyMarkup);
+        return NextResponse.json({ ok: true });
+      }
+
+      if (action === "askcancel") {
+        const reply = await confirmCancelReply(payload);
+        await answerCallbackQuery(queryId);
+        await replyToChat(chatId, reply.text, reply.replyMarkup);
         return NextResponse.json({ ok: true });
       }
 
@@ -71,12 +104,14 @@ export async function POST(request: NextRequest) {
     }
 
     if (update.message?.text) {
-      const reply = await handleTelegramCommand(update.message.text);
-      if (reply) {
-        await sendTelegramMessage(reply.text, {
-          chatId: String(update.message.chat.id),
-          replyMarkup: reply.replyMarkup,
-        });
+      const replies = await handleTelegramCommand(update.message.text);
+      if (replies) {
+        for (const reply of replies) {
+          await sendTelegramMessage(reply.text, {
+            chatId: String(update.message.chat.id),
+            replyMarkup: reply.replyMarkup,
+          });
+        }
       }
       return NextResponse.json({ ok: true });
     }

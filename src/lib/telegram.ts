@@ -2,7 +2,7 @@ import type { Booking } from "@/types";
 import { getSettings } from "./settings";
 import { formatBookingRange } from "./booking-dates";
 import { formatBookerName } from "./person-name";
-import { destinationLine, escapeHtml } from "./telegram-format";
+import { destinationLine, escapeHtml, chatMenuKeyboard } from "./telegram-format";
 
 const TELEGRAM_API = "https://api.telegram.org/bot";
 
@@ -33,7 +33,7 @@ export async function sendTelegramMessage(
         chat_id: chatId,
         text,
         parse_mode: "HTML",
-        reply_markup: options?.replyMarkup,
+        reply_markup: options?.replyMarkup ?? chatMenuKeyboard(),
       }),
     });
     return res.ok;
@@ -149,6 +149,14 @@ export async function setTelegramCommands(): Promise<boolean> {
         {
           command: "month",
           description: "ดูรถว่างทั้งเดือนนี้",
+        },
+        {
+          command: "cancel",
+          description: "ยกเลิกการจองที่มีอยู่",
+        },
+        {
+          command: "menu",
+          description: "แสดงเมนูในแชท",
         },
         {
           command: "help",

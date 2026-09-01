@@ -10,21 +10,39 @@ import {
 } from "date-fns";
 import { th } from "date-fns/locale";
 import type { Booking, Vehicle } from "@/types";
-import { getAllBookings } from "./bookings";
+import { getAllBookings, getBookingById } from "./bookings";
 import {
   bookingCoversDate,
+  bookingEndDate,
+  formatBookingRange,
   formatYmd,
   MAX_BOOKING_DAYS,
   parseYmd,
 } from "./booking-dates";
 import { formatBookerName } from "./person-name";
-import { destinationLine, escapeHtml } from "./telegram-format";
+import {
+  destinationLine,
+  escapeHtml,
+  chatMenuKeyboard,
+  mainInlineMenu,
+  MENU_BUTTON,
+} from "./telegram-format";
 import { getAllVehicles } from "./vehicles";
 
 export type TelegramReply = {
   text: string;
   replyMarkup?: object;
 };
+
+export function menuOpenReplies(): TelegramReply[] {
+  return [
+    {
+      text: "เปิดเมนูด้านล่างแล้ว กดปุ่มในแชทเพื่อใช้งาน",
+      replyMarkup: chatMenuKeyboard(),
+    },
+    helpReply(),
+  ];
+}
 
 const THAI_MONTHS: Record<string, number> = {
   มกราคม: 1,
@@ -269,22 +287,115 @@ function dayReport(date: Date, vehicles: Vehicle[], bookings: Booking[]): string
 export function helpReply(): TelegramReply {
   return {
     text: [
-      "🤖 <b>คำสั่งบอทจองรถ</b>",
+      "🤖 <b>เมนูบอทจองรถ</b>",
+      "",
+      "กดปุ่มด้านล่างข้อความนี้ หรือเมนูด้านล่างแชท",
       "",
       "<code>/ว่าง</code> — ดูรถว่าง 14 วันข้างหน้า",
       "<code>/ว่าง 15/9</code> — ดูรถว่างวันที่ระบุ",
       "<code>/ว่างเดือน</code> — ดูทั้งเดือนนี้",
-      "<code>/ว่าง กันยายน</code> — ดูทั้งเดือนที่ระบุ",
+      "<code>/ยกเลิก</code> — ยกเลิกการจองที่มีอยู่",
+      "<code>/เมนู</code> — แสดงเมนูนี้อีกครั้ง",
       "",
       "วันที่ใช้ได้เช่น 15/9, 15/9/2569, 2026-09-15",
+    ].join("\n"),
+    replyMarkup: mainInlineMenu(),
+  };
+}
+
+function statusLabel(status: Booking["status"]): string {
+  if (status === "pending") return "รออนุมัติ";
+  if (status === "approved") return "อนุมัติแล้ว";
+  if (status === "completed") return "เสร็จสิ้น";
+  return "ยกเลิก";
+}
+
+function upcomingBookings(bookings: Booking[]): Booking[] {
+  const today = formatYmd(startOfDay(new Date()));
+  return bookings
+    .filter(
+      (b) =>
+        (b.status === "pending" || b.status === "approved") &&
+        bookingEndDate(b) >= today
+    )
+    .sort((a, b) => {
+      const byDate = a.date.localeCompare(b.date);
+      if (byDate !== 0) return byDate;
+      return a.createdAt.localeCompare(b.createdAt);
+    })
+    .slice(0, 10);
+}
+
+export async function bookingListReply(
+  mode: "manage" | "cancel" = "manage"
+): Promise<TelegramReply> {
+  const bookings = upcomingBookings(await getAllBookings());
+  if (bookings.length === 0) {
+    return {
+      text: "ไม่มีการจองที่รออยู่หรือกำลังจะถึง",
+      replyMarkup: mainInlineMenu(),
+    };
+  }
+
+  const title =
+    mode === "cancel"
+      ? "❌ <b>เลือกการจองที่ต้องการยกเลิก</b>"
+      : "📋 <b>รายการจองที่กำลังจะถึง</b>";
+
+  const lines = [title, ""];
+  const keyboard: { text: string; callback_data: string }[][] = [];
+
+  bookings.forEach((b, index) => {
+    lines.push(
+      `${index + 1}. ${escapeHtml(formatBookingRange(b))}`,
+      `   ${escapeHtml(formatBookerName(b))} · ${escapeHtml(b.vehicleName || "รถ")}`,
+      `   📍 ${escapeHtml(destinationLine(b))} (${statusLabel(b.status)})`,
+      ""
+    );
+
+    const row: { text: string; callback_data: string }[] = [];
+    if (mode === "manage" && b.status === "pending") {
+      row.push({
+        text: `${index + 1} ✅ อนุมัติ`,
+        callback_data: `approve:${b.id}`,
+      });
+    }
+    row.push({
+      text: `${index + 1} ❌ ยกเลิก`,
+      callback_data: `askcancel:${b.id}`,
+    });
+    keyboard.push(row);
+  });
+
+  lines.push("กดปุ่มด้านล่างเพื่ออนุมัติหรือยกเลิก");
+
+  return {
+    text: lines.join("\n").trim(),
+    replyMarkup: { inline_keyboard: keyboard },
+  };
+}
+
+export async function confirmCancelReply(bookingId: string): Promise<TelegramReply> {
+  const booking = await getBookingById(bookingId);
+  if (!booking || booking.status === "cancelled") {
+    return { text: "ไม่พบการจองนี้ หรือถูกยกเลิกไปแล้ว" };
+  }
+
+  return {
+    text: [
+      "⚠️ <b>ยืนยันยกเลิกการจองนี้?</b>",
       "",
-      "เมื่อมีคำขอจองใหม่ กดปุ่มอนุมัติหรือยกเลิกในข้อความได้เลย",
+      `📅 ${escapeHtml(formatBookingRange(booking))}`,
+      `👤 ${escapeHtml(formatBookerName(booking))}`,
+      `🎯 ${escapeHtml(booking.activity)}`,
+      `📍 ${escapeHtml(destinationLine(booking))}`,
+      `🚌 ${escapeHtml(booking.vehicleName || "")}`,
     ].join("\n"),
     replyMarkup: {
       inline_keyboard: [
         [
-          { text: "14 วันข้างหน้า", callback_data: "avail:range" },
-          { text: "เดือนนี้", callback_data: "avail:month" },
+          { text: "ยืนยันยกเลิก", callback_data: `cancel:${booking.id}` },
+          { text: "ไม่ยกเลิก", callback_data: "list:cancel" },
         ],
       ],
     },
@@ -338,7 +449,7 @@ export async function availabilityReply(payload: string): Promise<TelegramReply>
 
 export async function handleTelegramCommand(
   text: string
-): Promise<TelegramReply | null> {
+): Promise<TelegramReply[] | null> {
   const cleaned = text.trim().replace(/^\/([^\s@]+)@\S+/, "/$1");
   if (!cleaned) return null;
 
@@ -346,26 +457,48 @@ export async function handleTelegramCommand(
   const [rawCmd, ...rest] = cleaned.split(/\s+/);
   const cmd = rawCmd.replace(/^\//, "").toLowerCase();
   const arg = rest.join(" ").trim();
+  const menuLabel = Object.values(MENU_BUTTON).includes(
+    cleaned as (typeof MENU_BUTTON)[keyof typeof MENU_BUTTON]
+  )
+    ? cleaned
+    : "";
 
   if (
     cmd === "start" ||
+    cmd === "menu" ||
+    cmd === "เมนู" ||
+    menuLabel === MENU_BUTTON.help ||
     cmd === "help" ||
     cmd === "ช่วย" ||
     cmd === "คำสั่ง"
   ) {
-    return helpReply();
+    return cmd === "start" || cmd === "menu" || cmd === "เมนู"
+      ? menuOpenReplies()
+      : [helpReply()];
   }
 
-  if (cmd === "month" || cmd === "ว่างเดือน") {
-    return availabilityReply("month");
+  if (cmd === "month" || cmd === "ว่างเดือน" || menuLabel === MENU_BUTTON.month) {
+    return [await availabilityReply("month")];
   }
 
-  if (cmd === "free" || cmd === "available" || cmd === "ว่าง") {
-    return availabilityReply(arg || "range");
+  if (cmd === "free" || cmd === "available" || cmd === "ว่าง" || menuLabel === MENU_BUTTON.free) {
+    return [await availabilityReply(arg || "range")];
+  }
+
+  if (
+    cmd === "cancel" ||
+    cmd === "ยกเลิก" ||
+    menuLabel === MENU_BUTTON.cancel
+  ) {
+    return [await bookingListReply("cancel")];
+  }
+
+  if (cmd === "list" || cmd === "รายการ" || menuLabel === MENU_BUTTON.list) {
+    return [await bookingListReply("manage")];
   }
 
   if (isSlash) {
-    return helpReply();
+    return [helpReply()];
   }
 
   return null;
