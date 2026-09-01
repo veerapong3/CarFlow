@@ -4,6 +4,7 @@ import {
   createBooking,
   getBookingsByMonth,
   getAvailableVehicles,
+  getRecentSuccessfulBookings,
 } from "@/lib/bookings";
 import { notifyNewBooking } from "@/lib/telegram";
 import { verifyAdminPassword, getSettings } from "@/lib/settings";
@@ -15,6 +16,15 @@ export async function GET(request: NextRequest) {
     const month = searchParams.get("month");
     const date = searchParams.get("date");
     const available = searchParams.get("available");
+    const recent = searchParams.get("recent");
+
+    if (recent) {
+      const limit = parseInt(recent, 10);
+      const bookings = await getRecentSuccessfulBookings(
+        Number.isFinite(limit) ? limit : 10
+      );
+      return NextResponse.json(bookings);
+    }
 
     if (date && available === "true") {
       const vehicleIds = await getAvailableVehicles(date);

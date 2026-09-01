@@ -6,6 +6,7 @@ import { th } from "date-fns/locale";
 import Calendar from "@/components/Calendar";
 import BookingForm from "@/components/BookingForm";
 import StatusBadge from "@/components/StatusBadge";
+import RecentBookings from "@/components/RecentBookings";
 import type { Booking } from "@/types";
 import { CheckCircle } from "lucide-react";
 
@@ -13,15 +14,23 @@ export default function HomePage() {
   const [currentDate, setCurrentDate] = useState(new Date());
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const [bookings, setBookings] = useState<Booking[]>([]);
+  const [recentBookings, setRecentBookings] = useState<Booking[]>([]);
   const [showForm, setShowForm] = useState(false);
   const [success, setSuccess] = useState(false);
 
   const loadBookings = useCallback(async () => {
     const year = currentDate.getFullYear();
     const month = currentDate.getMonth() + 1;
-    const res = await fetch(`/api/bookings?year=${year}&month=${month}`);
-    const data = await res.json();
-    setBookings(data);
+    const [monthRes, recentRes] = await Promise.all([
+      fetch(`/api/bookings?year=${year}&month=${month}`),
+      fetch("/api/bookings?recent=10"),
+    ]);
+    const [monthData, recentData] = await Promise.all([
+      monthRes.json(),
+      recentRes.json(),
+    ]);
+    setBookings(Array.isArray(monthData) ? monthData : []);
+    setRecentBookings(Array.isArray(recentData) ? recentData : []);
   }, [currentDate]);
 
   useEffect(() => {
@@ -82,7 +91,7 @@ export default function HomePage() {
           />
         </div>
 
-        <div className="lg:col-span-2">
+        <div className="flex flex-col gap-6 lg:col-span-2">
           {showForm && selectedDate ? (
             <BookingForm
               selectedDate={selectedDate}
@@ -143,6 +152,8 @@ export default function HomePage() {
                 )}
             </div>
           )}
+
+          <RecentBookings bookings={recentBookings} />
         </div>
       </div>
     </div>

@@ -83,6 +83,24 @@ export async function getBookingsByMonth(year: number, month: number): Promise<B
   });
 }
 
+const SUCCESS_STATUSES: BookingStatus[] = ["approved", "completed"];
+
+/** รายการจองที่อนุมัติแล้วหรือเสร็จสิ้น ล่าสุดตามวันที่เดินทาง — ไม่ส่งเบอร์โทรออกไป (หน้าสาธารณะ) */
+export async function getRecentSuccessfulBookings(
+  limit = 10
+): Promise<Booking[]> {
+  const all = await getAllBookings();
+  return all
+    .filter((b) => SUCCESS_STATUSES.includes(b.status))
+    .sort((a, b) => {
+      const byDate = new Date(b.date).getTime() - new Date(a.date).getTime();
+      if (byDate !== 0) return byDate;
+      return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+    })
+    .slice(0, Math.max(1, Math.min(limit, 50)))
+    .map((b) => ({ ...b, phone: "" }));
+}
+
 export async function isVehicleAvailable(
   vehicleId: string,
   date: string,

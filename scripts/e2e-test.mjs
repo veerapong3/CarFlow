@@ -233,6 +233,24 @@ try {
   const approved = await json(approveRes);
   check("อนุมัติสำเร็จ", approveRes.ok && approved.status === "approved", approved.error);
 
+  // ---- 8b. รายการจองสำเร็จล่าสุด (หน้าสาธารณะ) ----
+  console.log("\n8b) รายการจองสำเร็จล่าสุด");
+  const recent = await json(await fetch(`${BASE}/api/bookings?recent=10`));
+  check("recent เป็นอาเรย์", Array.isArray(recent));
+  check(
+    "การจองที่อนุมัติแล้วปรากฏในรายการสำเร็จ",
+    Array.isArray(recent) && recent.some((b) => b.id === booking.id)
+  );
+  check(
+    "ไม่ส่งเบอร์โทรออกไปในรายการสาธารณะ",
+    Array.isArray(recent) && recent.every((b) => !b.phone)
+  );
+  check(
+    "ไม่มีสถานะรออนุมัติหรือยกเลิก",
+    Array.isArray(recent) &&
+      recent.every((b) => b.status === "approved" || b.status === "completed")
+  );
+
   // ---- 9. บันทึกระยะทาง ----
   console.log("\n9) บันทึกระยะทางสำหรับ Dashboard");
   const distRes = await fetch(`${BASE}/api/bookings/${booking.id}`, {
