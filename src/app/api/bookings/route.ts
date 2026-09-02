@@ -55,7 +55,11 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const booking = await createBooking(body);
 
-    notifyNewBooking(booking).catch(console.error);
+    try {
+      await notifyNewBooking(booking);
+    } catch (err) {
+      console.error("Telegram notify failed:", err);
+    }
 
     return NextResponse.json(booking, { status: 201 });
   } catch (error) {

@@ -36,6 +36,10 @@ export async function sendTelegramMessage(
         reply_markup: options?.replyMarkup ?? chatMenuKeyboard(),
       }),
     });
+    if (!res.ok) {
+      const detail = await res.text();
+      console.error("Telegram send failed:", res.status, detail);
+    }
     return res.ok;
   } catch (err) {
     console.error("Telegram send error:", err);

@@ -80,7 +80,11 @@ export async function PATCH(
     }
 
     if (status === "approved" || status === "cancelled") {
-      notifyBookingStatusChange(booking, status).catch(console.error);
+      try {
+        await notifyBookingStatusChange(booking, status);
+      } catch (err) {
+        console.error("Telegram status notify failed:", err);
+      }
     }
 
     return NextResponse.json(booking);

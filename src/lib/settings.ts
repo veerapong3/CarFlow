@@ -24,8 +24,8 @@ function rowToSettings(rows: string[][]): Settings {
     if (row[0]) map[row[0]] = row[1] || "";
   }
   return {
-    telegramChatId: map.telegramChatId || DEFAULT_SETTINGS.telegramChatId,
-    telegramBotToken: map.telegramBotToken || DEFAULT_SETTINGS.telegramBotToken,
+    telegramChatId: (map.telegramChatId || DEFAULT_SETTINGS.telegramChatId).trim(),
+    telegramBotToken: (map.telegramBotToken || DEFAULT_SETTINGS.telegramBotToken).trim(),
     adminPassword: map.adminPassword || DEFAULT_SETTINGS.adminPassword,
     schoolName: map.schoolName || DEFAULT_SETTINGS.schoolName,
   };
