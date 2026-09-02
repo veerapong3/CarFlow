@@ -8,8 +8,12 @@ import { LogOut, Send } from "lucide-react";
 export default function AdminSettingsPage() {
   const { password, ready, login, logout } = useAdminAuth();
   const [telegramChatId, setTelegramChatId] = useState("");
+  const [telegramBotToken, setTelegramBotToken] = useState("");
+  const [tokenHint, setTokenHint] = useState("");
+  const [hasToken, setHasToken] = useState(false);
   const [schoolName, setSchoolName] = useState("");
   const [saved, setSaved] = useState(false);
+  const [error, setError] = useState("");
   const [webhookStatus, setWebhookStatus] = useState("");
   const [loading, setLoading] = useState(false);
 
@@ -19,6 +23,8 @@ export default function AdminSettingsPage() {
       .then((data) => {
         setTelegramChatId(data.telegramChatId || "");
         setSchoolName(data.schoolName || "");
+        setHasToken(!!data.hasTelegramBotToken);
+        setTokenHint(data.telegramBotTokenHint || "");
       });
   }, []);
 
@@ -27,17 +33,30 @@ export default function AdminSettingsPage() {
 
   async function handleSave(e: React.FormEvent) {
     e.preventDefault();
+    setError("");
+    setSaved(false);
     setLoading(true);
     const res = await fetch("/api/settings", {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ password, telegramChatId, schoolName }),
+      body: JSON.stringify({
+        password,
+        telegramChatId,
+        schoolName,
+        telegramBotToken,
+      }),
     });
+    const data = await res.json();
     setLoading(false);
-    if (res.ok) {
-      setSaved(true);
-      setTimeout(() => setSaved(false), 3000);
+    if (!res.ok) {
+      setError(data.error || "บันทึกไม่สำเร็จ");
+      return;
     }
+    setHasToken(!!data.hasTelegramBotToken);
+    setTokenHint(data.telegramBotTokenHint || "");
+    setTelegramBotToken("");
+    setSaved(true);
+    setTimeout(() => setSaved(false), 3000);
   }
 
   async function setupWebhook() {
@@ -83,6 +102,27 @@ export default function AdminSettingsPage() {
           </div>
 
           <div>
+            <label className="label">Telegram Bot Token</label>
+            <input
+              className="input-field font-mono"
+              type="password"
+              autoComplete="off"
+              placeholder={
+                hasToken
+                  ? "มี token อยู่แล้ว — ใส่ใหม่เฉพาะเมื่อต้องการเปลี่ยน"
+                  : "วาง token จาก @BotFather"
+              }
+              value={telegramBotToken}
+              onChange={(e) => setTelegramBotToken(e.target.value.trim())}
+            />
+            <p className="mt-1 text-xs text-slate-500">
+              {hasToken
+                ? `กำลังใช้ token ที่ลงท้าย ${tokenHint} — เว้นว่างไว้ถ้าไม่ต้องการเปลี่ยน`
+                : "สร้างบอทที่ @BotFather แล้วคัดลอก token มาวางที่นี่"}
+            </p>
+          </div>
+
+          <div>
             <label className="label">Telegram Chat ID</label>
             <input
               className="input-field"
@@ -96,6 +136,10 @@ export default function AdminSettingsPage() {
             </p>
           </div>
 
+          {error && (
+            <p className="text-sm text-red-600">{error}</p>
+          )}
+
           <button type="submit" className="btn-primary" disabled={loading}>
             {loading ? "กำลังบันทึก..." : "บันทึกการตั้งค่า"}
           </button>
@@ -107,22 +151,22 @@ export default function AdminSettingsPage() {
         <div className="card space-y-4">
           <h2 className="text-lg font-semibold">Telegram Bot</h2>
           <p className="text-sm text-slate-600">
-            ตั้งค่า Bot Token ใน Environment Variables ของ Vercel
-            (<code className="rounded bg-slate-100 px-1">TELEGRAM_BOT_TOKEN</code>)
+            ใส่ Bot Token และ Chat ID ทางซ้าย แล้วกดตั้งค่า Webhook
+            เพื่อให้บอทรับปุ่มอนุมัติ/ยกเลิกและคำสั่งในแชท
           </p>
 
           <div className="rounded-lg bg-slate-50 p-4 text-sm text-slate-700">
             <p className="font-medium mb-2">วิธีใช้งาน Telegram:</p>
             <ol className="list-decimal space-y-1 pl-4">
-              <li>สร้าง Bot ผ่าน @BotFather แล้วคัดลอก Token</li>
+              <li>สร้าง Bot ผ่าน @BotFather แล้วคัดลอก Token มาใส่ทางซ้าย</li>
               <li>เพิ่ม Bot เข้ากลุ่ม Admin หรือแชทส่วนตัว</li>
-              <li>ใส่ Chat ID ด้านซ้าย</li>
+              <li>ใส่ Chat ID ทางซ้าย แล้วกดบันทึก</li>
               <li>กดปุ่มตั้งค่า Webhook ด้านล่าง</li>
               <li>เมื่อมีการจองใหม่ Bot จะส่งข้อความพร้อมปุ่ม อนุมัติ/ยกเลิก</li>
               <li>
                 พิมพ์{" "}
                 <code className="rounded bg-slate-100 px-1">/เมนู</code>{" "}
-                เพื่อเปิดปุ่มในแชท — เช็กวันว่าง ดูรายการ และยกเลิกการจอง
+                เพื่อเปิดปุ่มในแชท — เช็กวันว่าง ดูรายการ เปิดเว็บ และยกเลิกการจอง
               </li>
               <li>
                 ถ้าปุ่มล่างแชทกลุ่มกดแล้วบอทไม่ตอบ ให้ไปที่ @BotFather →
